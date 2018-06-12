@@ -26,6 +26,12 @@ TODO:
 
   Use "Another coin bites the dust" metrics for determining number of dust outputs created?
 
+Another program (using eklitzke utxodump) should be used for UTXO set analysis
+need to decide how to store UTXO set and how to manage it with new blocks
+Don't want to have to deal with re-orgs so would stay 6+ blocks back, Can set an alert for bigger reorgs and fix manually.
+
+that analysis would be some kind of dashboaord for spendability of UTXOs
+
 */
 
 const BLOCK_NUM_DIFF = 6
@@ -104,44 +110,36 @@ func main() {
 	dash.outputDetectionTest()
 
 	dash.analysisTest()
-
-	/*
-		        // This update loop should be used once the entire chain history has been processed.
-			// Update DB when new blocks are detected.
-
-		analyzedCount := int64(0) // TODO: read from db
-			for {
-				// Get the current block count.
-				blockCount, err := client.GetBlockCount()
-				if err != nil {
-					log.Fatal(err)
-				}
-				log.Printf("Block count: %d", blockCount)
-
-				// Only do things if the block is 6 confirmations in.
-				if blockCount-analyzedCount > BLOCK_NUM_DIFF {
-					dash.analyzeBlock(analyzedCount)
-				} else {
-					time.Sleep(100 * time.Millisecond)
-				}
-
-				return
-			}
-	*/
 }
 
 func (dash *Dashboard) analysisTest() {
 	// TODO
 	// Setup thread to receive new batchpoints from workers. and put into db
 
-	const START_BLOCK = 525001
-	const END_BLOCK = 525025
+	const START_BLOCK = 520000
+	const END_BLOCK = 527140
+	// This took 359 seconds
 
 	for i := START_BLOCK; i < END_BLOCK; i++ {
 		dash.analyzeBlock(int64(i))
-	}
 
-	log.Println(dash.bp)
+		if i%1000 == 0 {
+			err := dash.iClient.Write(dash.bp)
+			if err != nil {
+				log.Println("DB WRITE ERR: ", err)
+			}
+
+			// Setup influx batchpoints.
+			bp, err := influxClient.NewBatchPoints(influxClient.BatchPointsConfig{
+				Database: "btctest",
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			dash.bp = bp
+		}
+	}
 
 	err := dash.iClient.Write(dash.bp)
 	if err != nil {
@@ -149,16 +147,39 @@ func (dash *Dashboard) analysisTest() {
 	}
 }
 
-// Fields (don't need to be indexed)
+// Fields (don't need to be indexed) in influxdb
 type BlockStatistics struct {
-	numTxns                       int
+	totalBlockSpace int
+	totalVolumeBTC  int
+	numTxns         int
+
 	numTxnsSpendingP2SH           int
 	numTxnsSpendingP2WPKH         int
 	numTxnsSpendingP2WSH          int
 	numTxnsSendingToNativeWitness int
 	numTxnsSignalingRBF           int
-	numTxnsThatBatch              int
 	numTxnsThatConsolidate        int
+
+	// Batching statistics
+	// TODO split up into different ranges
+	// should they be fixed? it seems like some fixed set of ranges may be enough.
+	// i.e. above 5 is definitely batching
+	// copy p2sh ranges?
+	numTxnsThatBatch int
+
+	// Number of each of these output types spent.
+	numP2SHOutputsSpent   int
+	numP2WSHOutputsSpent  int
+	numP2WPKHOutputsSpent int
+
+	// TODO: fee statistics
+	totalFee int
+
+	// SegWit usage statistics
+	numTxnsUsingSegWit         int
+	feesPaidbySegWitTxns       int
+	blockSpaceUsedBySegWitTxns int
+	totalVolumeBySegWitTxns    int
 }
 
 func (dash *Dashboard) analyzeBlock(blockHeight int64) {
@@ -237,6 +258,8 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 }
 
 // TODO: add native witness output detection.
+// there is a BIP173 reference implmentation for golang
+// but
 func analyzeTxn(txn *wire.MsgTx) BlockStatistics {
 	const RBF_THRESHOLD = uint32(0xffffffff) - 1
 	const CONSOLIDATION_MIN = 3 // Minimum number of inputs for it to be considered consolidation.
@@ -244,32 +267,46 @@ func analyzeTxn(txn *wire.MsgTx) BlockStatistics {
 
 	statsDiff := BlockStatistics{}
 
+	// Get value spent to compute fee.
+	totalValueIn := 0
+	totalValueOut := 0
+
 	for _, input := range txn.TxIn {
 		//  A transaction signals RBF any of if its input's sequence number is less than (0xffffffff - 1).
 		if input.Sequence < RBF_THRESHOLD {
 			statsDiff.numTxnsSignalingRBF = 1
-			break
 		}
-	}
 
-	for _, output := range txn.TxOut {
-		if outputIsP2SH(output) {
+		// Get output spent by this input.
+		prevTx, err := dash.client.GetRawTransaction(input.PreviousOutPoint.Hash)
+		if err != nil {
+			log.Fatal("Error getting previous output.", err)
+		}
+
+		spentOutput = prevTx.msgTx.TxOut[input.PreviousOutPoint.Index]
+		if outputIsP2SH(spentOutput) {
 			statsDiff.numTxnsSpendingP2SH = 1
 		}
 
-		if outputIsP2WSH(output) {
+		if outputIsP2WSH(spentOutput) {
 			statsDiff.numTxnsSpendingP2WSH = 1
 		}
 
-		if outputIsP2WPKH(output) {
+		if outputIsP2WPKH(spentOutput) {
 			statsDiff.numTxnsSpendingP2WPKH = 1
 		}
+	}
+
+	// TODO: track creation of native segwit outputs
+	for _, output := range txn.TxOut {
+
 	}
 
 	if (len(txn.TxIn) >= CONSOLIDATION_MIN) && (len(txn.TxOut) == 1) {
 		statsDiff.numTxnsThatConsolidate = 1
 	}
 
+	// TODO: more fine-grained batching stats.
 	if len(txn.TxOut) >= BATCHING_MIN {
 		statsDiff.numTxnsThatBatch = 1
 	}
