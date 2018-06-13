@@ -5,9 +5,11 @@ import (
 	"github.com/btcsuite/btcd/wire"
 	influxClient "github.com/influxdata/influxdb/client/v2"
 	"log"
+	"os"
+	"runtime/pprof"
 	"strconv"
 	"sync"
-	//"time"
+	"time"
 )
 
 /*
@@ -15,46 +17,32 @@ import (
 This program sets up a RPC connection with a local bitcoind instance,
 and an HTTP client for a local influxdb instance.
 
-Goal 1:
-  Analyze 2k blocks for some basic statistics in influxdb
-  Analyze performance of software (time spent per block, which parts are most parallelizable, etc.)
-  Hook up to Grafana and show some of the basic plots.
-
 TODO:
   Decide how to best figure out fee breakdowns
-  Is it enough to get quartiles, or deciles?
-
   Use "Another coin bites the dust" metrics for determining number of dust outputs created?
-
-Another program (using eklitzke utxodump) should be used for UTXO set analysis
-need to decide how to store UTXO set and how to manage it with new blocks
-Don't want to have to deal with re-orgs so would stay 6+ blocks back, Can set an alert for bigger reorgs and fix manually.
-
-that analysis would be some kind of dashboaord for spendability of UTXOs
 
 */
 
 const BLOCK_NUM_DIFF = 6
 
-// Consts for influxdb
-// TODO: Put some of these in environment variables
-const (
-	DB          = "btctest"
-	DB_USERNAME = "marcin"
-	DB_PASSWORD = "af181a9c33573928734a387223384b9a318ebb36"
-
-	BITCOIND_HOST     = "localhost:8332"
-	BITCOIND_USERNAME = "marcin"
-	BITCOIND_PASSWORD = "af337a17c853e43e6393153e8d868578789ca20a"
-)
-
+// TODO: fix jankness of carrying batchpoints around in this struct.
 type Dashboard struct {
 	client  *rpcclient.Client
 	iClient influxClient.Client
 	bp      influxClient.BatchPoints
 }
 
+// Assumes enviroment variables: DB, DB_USERNAME, DB_PASSWORD, BITCOIND_HOST, BITCOIND_USERNAME, BITCOIND_PASSWORD, are all set.
+// influxd and bitcoind should already be started.
 func setupDashboard() Dashboard {
+	DB := os.Getenv("DB")
+	DB_USERNAME := os.Getenv("DB_USERNAME")
+	DB_PASSWORD := os.Getenv("DB_PASSWORD")
+
+	BITCOIND_HOST := os.Getenv("BITCOIND_HOST")
+	BITCOIND_USERNAME := os.Getenv("BITCOIND_USERNAME")
+	BITCOIND_PASSWORD := os.Getenv("BITCOIND_PASSWORD")
+
 	// Connect to local bitcoin core RPC server using HTTP POST mode.
 	connCfg := &rpcclient.ConnConfig{
 		Host:         BITCOIND_HOST,
@@ -82,7 +70,7 @@ func setupDashboard() Dashboard {
 
 	// Setup influx batchpoints.
 	bp, err := influxClient.NewBatchPoints(influxClient.BatchPointsConfig{
-		Database: "btctest",
+		Database: DB,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -102,56 +90,74 @@ func (dash *Dashboard) shutdown() {
 	dash.iClient.Close()
 }
 
+const PROFILE = false
+
 func main() {
-	dash := setupDashboard()
-	defer dash.shutdown()
+	if PROFILE {
+		f, _ := os.Create("cpu.out")
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 
-	// TODO: write tests that check analysis functions.
-	dash.outputDetectionTest()
+	analysisTestTwo()
 
-	dash.analysisTest()
+	/*
+		dash := setupDashboard()
+		defer dash.shutdown()
+
+		dash.analysisTest()
+	*/
 }
 
+//TODO: add arguments for start, end blocks
+const START_BLOCK = 490000
+const END_BLOCK = 492000
+
 func (dash *Dashboard) analysisTest() {
-	// TODO
-	// Setup thread to receive new batchpoints from workers. and put into db
 
-	const START_BLOCK = 520000
-	const END_BLOCK = 527140
-	// This took 359 seconds
-
+	start := time.Now()
 	for i := START_BLOCK; i < END_BLOCK; i++ {
 		dash.analyzeBlock(int64(i))
+		/*
+			// Store points into influxdb every 1000 blocks
+			if i%1000 == 0 {
+				err := dash.iClient.Write(dash.bp)
+				if err != nil {
+					log.Println("DB WRITE ERR: ", err)
+				}
 
-		if i%1000 == 0 {
-			err := dash.iClient.Write(dash.bp)
-			if err != nil {
-				log.Println("DB WRITE ERR: ", err)
+				// Setup influx batchpoints.
+				bp, err := influxClient.NewBatchPoints(influxClient.BatchPointsConfig{
+					Database: "btctest",
+				})
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				dash.bp = bp
 			}
-
-			// Setup influx batchpoints.
-			bp, err := influxClient.NewBatchPoints(influxClient.BatchPointsConfig{
-				Database: "btctest",
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			dash.bp = bp
-		}
+		*/
 	}
 
 	err := dash.iClient.Write(dash.bp)
 	if err != nil {
 		log.Println("DB WRITE ERR: ", err)
 	}
+
+	log.Println("Time elapsed: ", time.Since(start))
+
 }
 
+// Batch ranges =  [(1), (2), (3-4), (5-9), (10-49), (50-99), (100+)]
+const BATCH_RANGE_LENGTH = 7
+
 // Fields (don't need to be indexed) in influxdb
-type BlockStatistics struct {
-	totalBlockSpace int
-	totalVolumeBTC  int
-	numTxns         int
+type BlockMetrics struct {
+	blockHeight int
+
+	totalBlockSize int //TODO: implement
+	totalVolumeBTC int
+	numTxns        int
 
 	numTxnsSpendingP2SH           int
 	numTxnsSpendingP2WPKH         int
@@ -160,26 +166,120 @@ type BlockStatistics struct {
 	numTxnsSignalingRBF           int
 	numTxnsThatConsolidate        int
 
-	// Batching statistics
-	// TODO split up into different ranges
-	// should they be fixed? it seems like some fixed set of ranges may be enough.
-	// i.e. above 5 is definitely batching
-	// copy p2sh ranges?
+	// Batching metrics
 	numTxnsThatBatch int
+	numPerSizeRange  [BATCH_RANGE_LENGTH]int
 
-	// Number of each of these output types spent.
-	numP2SHOutputsSpent   int
-	numP2WSHOutputsSpent  int
-	numP2WPKHOutputsSpent int
+	//TODO: implement
+	// Number of each of these output types created.
+	numP2SHOutputsCreated   int
+	numP2WSHOutputsCreated  int
+	numP2WPKHOutputsCreated int
 
-	// TODO: fee statistics
+	// Fee statistics
 	totalFee int
+	// TODO: more fine-grained statistics
 
-	// SegWit usage statistics
-	numTxnsUsingSegWit         int
-	feesPaidbySegWitTxns       int
-	blockSpaceUsedBySegWitTxns int
-	totalVolumeBySegWitTxns    int
+	// TODO: implement
+	// SegWit usage metrics
+	numTxnsUsingSegWit        int
+	feesPaidBySegWitTxns      int
+	blockSizeUsedBySegWitTxns int
+	totalVolumeBySegWitTxns   int
+}
+
+// Set batch range based on number of outputs.
+func setBatchRangeForTxn(txn *wire.MsgTx, metrics *BlockMetrics) {
+	i := len(txn.TxOut)
+
+	switch {
+	case i == 1:
+		metrics.numPerSizeRange[0] = 1
+	case i == 2:
+		metrics.numPerSizeRange[1] = 1
+	case (i == 3) || (i == 4):
+		metrics.numPerSizeRange[2] = 1
+	case (5 <= i) && (i <= 9):
+		metrics.numPerSizeRange[3] = 1
+	case (10 <= i) && (i <= 49):
+		metrics.numPerSizeRange[4] = 1
+	case (50 <= i) && (i <= 99):
+		metrics.numPerSizeRange[5] = 1
+	default: // >= 100
+		metrics.numPerSizeRange[6] = 1
+	}
+}
+
+// Combine the metrics learned from a single transaction into the total for the block.
+func (metrics *BlockMetrics) mergeTxnMetricsDiff(diff BlockMetrics) {
+	metrics.totalVolumeBTC += diff.totalVolumeBTC
+	metrics.numTxns += 1
+
+	metrics.numTxnsSpendingP2SH += diff.numTxnsSpendingP2SH
+	metrics.numTxnsSpendingP2WPKH += diff.numTxnsSpendingP2WPKH
+	metrics.numTxnsSpendingP2WSH += diff.numTxnsSpendingP2WSH
+	metrics.numTxnsSendingToNativeWitness += diff.numTxnsSendingToNativeWitness
+	metrics.numTxnsSignalingRBF += diff.numTxnsSignalingRBF
+	metrics.numTxnsThatBatch += diff.numTxnsThatBatch
+	metrics.numTxnsThatConsolidate += diff.numTxnsThatConsolidate
+
+	metrics.numTxnsThatBatch += diff.numTxnsThatBatch
+	for i := 0; i < BATCH_RANGE_LENGTH; i++ {
+		metrics.numPerSizeRange[i] += diff.numPerSizeRange[i]
+	}
+
+	metrics.numP2SHOutputsCreated += diff.numP2SHOutputsCreated
+	metrics.numP2WSHOutputsCreated += diff.numP2WSHOutputsCreated
+	metrics.numP2WPKHOutputsCreated += diff.numP2WPKHOutputsCreated
+
+	metrics.totalFee += diff.totalFee
+
+	metrics.numTxnsUsingSegWit += diff.numTxnsUsingSegWit
+	metrics.feesPaidBySegWitTxns += diff.feesPaidBySegWitTxns
+	metrics.blockSizeUsedBySegWitTxns += diff.blockSizeUsedBySegWitTxns
+	metrics.totalVolumeBySegWitTxns += diff.totalVolumeBySegWitTxns
+}
+
+func (metrics *BlockMetrics) setInfluxTags(tags map[string]string) {
+	tags["height"] = strconv.Itoa(metrics.blockHeight)
+}
+
+func (metrics *BlockMetrics) setInfluxFields(fields map[string]interface{}) {
+	fields["block_size"] = metrics.totalBlockSize
+	fields["volume_btc"] = metrics.totalVolumeBTC
+	fields["num_txns"] = metrics.numTxns
+
+	fields["frac_spending_P2SH"] = float64(metrics.numTxnsSpendingP2SH) / float64(metrics.numTxns)
+	fields["frac_spending_P2WPKH"] = float64(metrics.numTxnsSpendingP2WPKH) / float64(metrics.numTxns)
+	fields["frac_spending_P2WSH"] = float64(metrics.numTxnsSpendingP2WSH) / float64(metrics.numTxns)
+	fields["frac_sending_to_native_witness"] = float64(metrics.numTxnsSendingToNativeWitness) / float64(metrics.numTxns)
+	fields["frac_signalling_RBF"] = float64(metrics.numTxnsSignalingRBF) / float64(metrics.numTxns)
+	fields["frac_batching"] = float64(metrics.numTxnsThatBatch) / float64(metrics.numTxns)
+	fields["frac_consolidating"] = float64(metrics.numTxnsThatConsolidate) / float64(metrics.numTxns)
+
+	fields["num_consolidating"] = metrics.numTxnsThatConsolidate
+	fields["num_batching"] = metrics.numTxnsThatBatch
+
+	// Batch ranges =  [(1), (2), (3-4), (5-9), (10-49), (50-99), (100+)]
+	// TODO: name this field something more descriptive if possible.
+	fields["batch_range_0"] = float64(metrics.numPerSizeRange[0]) / float64(metrics.numTxns)
+	fields["batch_range_1"] = float64(metrics.numPerSizeRange[1]) / float64(metrics.numTxns)
+	fields["batch_range_2"] = float64(metrics.numPerSizeRange[2]) / float64(metrics.numTxns)
+	fields["batch_range_3"] = float64(metrics.numPerSizeRange[3]) / float64(metrics.numTxns)
+	fields["batch_range_4"] = float64(metrics.numPerSizeRange[4]) / float64(metrics.numTxns)
+	fields["batch_range_5"] = float64(metrics.numPerSizeRange[5]) / float64(metrics.numTxns)
+	fields["batch_range_6"] = float64(metrics.numPerSizeRange[6]) / float64(metrics.numTxns)
+
+	fields["num_P2SH_outputs_created"] = metrics.numP2SHOutputsCreated
+	fields["num_P2WSH_outputs_created"] = metrics.numP2WSHOutputsCreated
+	fields["num_P2WPKH_outputs_created"] = metrics.numP2WPKHOutputsCreated
+
+	fields["sum_of_fees"] = metrics.totalFee
+
+	fields["frac_fees_paid_by_segwit_txns"] = float64(metrics.feesPaidBySegWitTxns) / float64(metrics.totalFee)
+	fields["frac_txns_using_segwit"] = float64(metrics.numTxnsUsingSegWit) / float64(metrics.numTxns)
+	//fields["block_space_used_by_segwit"] = float64(metrics.blockSizeUsedBySegWitTxns) / float64(metrics.totalBlockSize) //TODO: avoid divide by 0.
+	fields["volume_btc_by_segwit"] = float64(metrics.totalVolumeBySegWitTxns) / float64(metrics.totalVolumeBTC)
 }
 
 func (dash *Dashboard) analyzeBlock(blockHeight int64) {
@@ -192,32 +292,26 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 	// Get contents of this block.
 	block, err := dash.client.GetBlock(blockHash)
 	if err != nil {
-		log.Fatal("error getting block")
+		log.Fatal("Error getting block", err)
 	}
 
-	blockTime := block.Header.Timestamp
-	numTxns := float64(len(block.Transactions))
-
 	// Fields stored in a struct (don't need to be indexed)
-	blockStats := BlockStatistics{numTxns: len(block.Transactions)}
+	blockMetrics := BlockMetrics{blockHeight: int(blockHeight), numTxns: len(block.Transactions)}
 
 	tags := make(map[string]string)
 	fields := make(map[string]interface{})
 
-	// Tags (get indexed by influxdb)
-	// (timestamp implicitly indexed because it's a time-series db)
-	// TODO: decide if block timestamp is the way to go
-	// blockheight,
-
+	// Analyze each transaction in a separate goroutine, collect results in this thread.
 	var wg sync.WaitGroup
-	resultsCh := make(chan BlockStatistics, len(block.Transactions))
+	resultsCh := make(chan BlockMetrics, len(block.Transactions))
 	for _, txn := range block.Transactions {
 		wg.Add(1)
 
 		go func(txn *wire.MsgTx) {
-			statsDiff := analyzeTxn(txn)
-			resultsCh <- statsDiff
+			metricsDiff := dash.analyzeTxn(txn)
+			resultsCh <- metricsDiff
 			wg.Done()
+
 		}(txn)
 	}
 	go func() {
@@ -226,92 +320,177 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 	}()
 
 	// Combine results as they come in from each transactions thread.
-	for res := range resultsCh {
-		blockStats.numTxnsSpendingP2SH += res.numTxnsSpendingP2SH
-		blockStats.numTxnsSpendingP2WPKH += res.numTxnsSpendingP2WPKH
-		blockStats.numTxnsSpendingP2WSH += res.numTxnsSpendingP2WSH
-		blockStats.numTxnsSendingToNativeWitness += res.numTxnsSendingToNativeWitness
-		blockStats.numTxnsSignalingRBF += res.numTxnsSignalingRBF
-		blockStats.numTxnsThatBatch += res.numTxnsThatBatch
-		blockStats.numTxnsThatConsolidate += res.numTxnsThatConsolidate
+	for diff := range resultsCh {
+		blockMetrics.mergeTxnMetricsDiff(diff)
 	}
 
-	tags["height"] = strconv.Itoa(int(blockHeight))
-	fields["spend_P2SH"] = float64(blockStats.numTxnsSpendingP2SH) / numTxns
-	fields["spend_P2WPKH"] = float64(blockStats.numTxnsSpendingP2WPKH) / numTxns
-	fields["spend_P2WSH"] = float64(blockStats.numTxnsSpendingP2WSH) / numTxns
-	fields["sent_to_native_witness"] = float64(blockStats.numTxnsSendingToNativeWitness) / numTxns
-	fields["num_signalling_RBF"] = float64(blockStats.numTxnsSignalingRBF) / numTxns
-	fields["num_batching"] = float64(blockStats.numTxnsThatBatch) / numTxns
-	fields["num_consolidating"] = float64(blockStats.numTxnsThatConsolidate) / numTxns
+	blockMetrics.setInfluxTags(tags)
+	blockMetrics.setInfluxFields(fields)
 
 	pt, err := influxClient.NewPoint(
-		"block_stats",
+		"block_metrics",
 		tags,
 		fields,
-		blockTime,
+		block.Header.Timestamp,
 	)
+	if err != nil {
+		log.Fatal("Error creating new point", err)
+	}
 
-	log.Println("Block and statistics:", blockHeight, blockStats)
+	log.Println("Block and metrics:", blockHeight, blockMetrics)
 
 	dash.bp.AddPoint(pt)
 }
 
-// TODO: add native witness output detection.
-// there is a BIP173 reference implmentation for golang
-// but
-func analyzeTxn(txn *wire.MsgTx) BlockStatistics {
+func (dash *Dashboard) analyzeBlockSerial(blockHeight int64) {
+	// Get hash of this block.
+	blockHash, err := dash.client.GetBlockHash(blockHeight)
+	if err != nil {
+		log.Fatal("Error getting block hash", err)
+	}
+
+	// Get contents of this block.
+	block, err := dash.client.GetBlock(blockHash)
+	if err != nil {
+		log.Fatal("Error getting block", err)
+	}
+
+	// Fields stored in a struct (don't need to be indexed)
+	blockMetrics := BlockMetrics{blockHeight: int(blockHeight), numTxns: len(block.Transactions)}
+	tags := make(map[string]string)        // for influxdb
+	fields := make(map[string]interface{}) // for influxdb
+
+	// Analyze each transaction, adding each one's contribution to the total set of metrics.
+
+	log.Println("BLOCK!!!!!!!!!!!!!!!!!!!!: ", block.Header, len(block.Transactions))
+	for _, txn := range block.Transactions {
+		diff := dash.analyzeTxn(txn)
+		blockMetrics.mergeTxnMetricsDiff(diff)
+	}
+
+	blockMetrics.setInfluxTags(tags)
+	blockMetrics.setInfluxFields(fields)
+
+	pt, err := influxClient.NewPoint(
+		"block_metrics",
+		tags,
+		fields,
+		block.Header.Timestamp,
+	)
+	if err != nil {
+		log.Fatal("Error creating new point", err)
+	}
+
+	log.Println("Block and metrics:", blockHeight, blockMetrics)
+
+	dash.bp.AddPoint(pt)
+}
+
+func (dash *Dashboard) analyzeTxn(txn *wire.MsgTx) BlockMetrics {
 	const RBF_THRESHOLD = uint32(0xffffffff) - 1
-	const CONSOLIDATION_MIN = 3 // Minimum number of inputs for it to be considered consolidation.
+	const CONSOLIDATION_MIN = 3 // Minimum number of inputs spent for it to be considered consolidation.
 	const BATCHING_MIN = 3      // Minimum number of outputs for it to be considered batching.
 
-	statsDiff := BlockStatistics{}
+	metricsDiff := BlockMetrics{}
 
 	// Get value spent to compute fee.
-	totalValueIn := 0
-	totalValueOut := 0
+	var totalInValue int64
+	var totalOutValue int64
 
-	for _, input := range txn.TxIn {
-		//  A transaction signals RBF any of if its input's sequence number is less than (0xffffffff - 1).
-		if input.Sequence < RBF_THRESHOLD {
-			statsDiff.numTxnsSignalingRBF = 1
-		}
+	if !isCoinbaseTransaction(txn) {
+		for _, input := range txn.TxIn {
+			//  A transaction signals RBF any of if its input's sequence number is less than (0xffffffff - 1).
+			if input.Sequence < RBF_THRESHOLD {
+				metricsDiff.numTxnsSignalingRBF = 1
+			}
 
-		// Get output spent by this input.
-		prevTx, err := dash.client.GetRawTransaction(input.PreviousOutPoint.Hash)
-		if err != nil {
-			log.Fatal("Error getting previous output.", err)
-		}
+			start := time.Now()
+			// Get output spent by this input.
+			prevTx, err := dash.client.GetRawTransaction(&input.PreviousOutPoint.Hash)
+			if err != nil {
+				log.Fatal("Error getting previous output.", err, txn.TxIn[0], txn.TxHash())
+			}
+			log.Println("Time scanning input: ", time.Since(start))
 
-		spentOutput = prevTx.msgTx.TxOut[input.PreviousOutPoint.Index]
-		if outputIsP2SH(spentOutput) {
-			statsDiff.numTxnsSpendingP2SH = 1
-		}
+			prevMsgTx := prevTx.MsgTx()
+			spentOutput := prevMsgTx.TxOut[input.PreviousOutPoint.Index]
 
-		if outputIsP2WSH(spentOutput) {
-			statsDiff.numTxnsSpendingP2WSH = 1
-		}
+			// todo: combine
+			// address detection into a single function.
+			// TODO: track spending of native segwit outputs
+			if outputIsP2SH(spentOutput) {
+				metricsDiff.numTxnsSpendingP2SH = 1
+				continue
+			}
 
-		if outputIsP2WPKH(spentOutput) {
-			statsDiff.numTxnsSpendingP2WPKH = 1
+			if outputIsP2WSH(spentOutput) {
+				metricsDiff.numTxnsSpendingP2WSH = 1
+				continue
+			}
+
+			if outputIsP2WPKH(spentOutput) {
+				metricsDiff.numTxnsSpendingP2WPKH = 1
+				continue
+			}
 		}
 	}
 
-	// TODO: track creation of native segwit outputs
 	for _, output := range txn.TxOut {
+		totalOutValue += output.Value
 
+		// TODO: Combine address detection into a single function.
+		// TODO: track creation of native segwit outputs
+		if outputIsP2SH(output) {
+			metricsDiff.numP2SHOutputsCreated += 1
+			continue
+		}
+
+		if outputIsP2WSH(output) {
+			metricsDiff.numP2WSHOutputsCreated += 1
+			continue
+		}
+
+		if outputIsP2WPKH(output) {
+			metricsDiff.numP2WPKHOutputsCreated += 1
+			continue
+		}
 	}
 
 	if (len(txn.TxIn) >= CONSOLIDATION_MIN) && (len(txn.TxOut) == 1) {
-		statsDiff.numTxnsThatConsolidate = 1
+		metricsDiff.numTxnsThatConsolidate = 1
 	}
 
-	// TODO: more fine-grained batching stats.
+	// Fine-grained and rough batching statistics.
+	setBatchRangeForTxn(txn, &metricsDiff)
 	if len(txn.TxOut) >= BATCHING_MIN {
-		statsDiff.numTxnsThatBatch = 1
+		metricsDiff.numTxnsThatBatch = 1
 	}
 
-	return statsDiff
+	metricsDiff.totalVolumeBTC = int(totalOutValue)
+
+	fee := totalInValue - totalOutValue
+	metricsDiff.totalFee = int(fee)
+
+	return metricsDiff
+}
+
+// TODO: Check that prevout hash is all 0.
+func isCoinbaseTransaction(txn *wire.MsgTx) bool {
+	const COINBASE_PREVOUT_HASH = 0x0000000000000000000000000000000000000000000000000000000000000000
+	const COINBASE_PREVOUT_INDEX = 4294967295
+
+	if len(txn.TxIn) != 1 {
+		return false
+	}
+
+	prevOut := txn.TxIn[0].PreviousOutPoint
+
+	//	if (prevOut.Hash == COINBASE_PREVOUT_HASH) && (prevOut.Index == COINBASE_PREVOUT_INDEX) {
+	if prevOut.Index == COINBASE_PREVOUT_INDEX {
+		return true
+	} else {
+		return false
+	}
 }
 
 func outputIsP2SH(txOut *wire.TxOut) bool {
@@ -354,7 +533,78 @@ func outputIsP2WSH(txOut *wire.TxOut) bool {
 	}
 }
 
+// TODO: implement.
+// Updates metrics based on the address type of this spent output.
+func (metrics *BlockMetrics) setSpentOutputType(txOut *wire.TxOut) {
+
+}
+
+// TODO: implement.
+// Updates metrics based on the address type of this created output.
+func (metrics *BlockMetrics) setCreatedOutputType(txOut *wire.TxOut) {
+
+}
+
 func (dash *Dashboard) outputDetectionTest() {
-	// TODO: find P2SH, P2WPKH, P2WSH, nativfe iwtness otpt
+	// TODO: find P2SH, P2WPKH, P2WSH, native witness output
 	// transactions to test above functions on.
+}
+
+const N_WORKERS = 8
+
+/*
+
+New Idea:
+
+split up work amongst many workers, each with their own clients. so that they don't get bottlenecked by 1 client making RPC requests.
+
+
+*/
+func analysisTestTwo() {
+	var wg sync.WaitGroup
+	workSplit := (END_BLOCK - START_BLOCK) / N_WORKERS
+	for i := 0; i < N_WORKERS; i++ {
+		wg.Add(1)
+		go func(i int) {
+			analyzeBlockRange(workSplit*i, workSplit*(i+1), START_BLOCK)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+}
+
+func analyzeBlockRange(start, end, offset int) {
+	dash := setupDashboard()
+	defer dash.shutdown()
+
+	startTime := time.Now()
+	for i := start; i < end; i++ {
+		dash.analyzeBlockSerial(int64(i + offset))
+
+		// Store points into influxdb every 1000 blocks
+		if i%1000 == 0 {
+			err := dash.iClient.Write(dash.bp)
+			if err != nil {
+				log.Println("DB WRITE ERR: ", err)
+			}
+
+			// Setup influx batchpoints.
+			bp, err := influxClient.NewBatchPoints(influxClient.BatchPointsConfig{
+				Database: "btctest",
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			dash.bp = bp
+		}
+	}
+
+	// Store any remaining points.
+	err := dash.iClient.Write(dash.bp)
+	if err != nil {
+		log.Println("DB WRITE ERR: ", err)
+	}
+
+	log.Println("Time elapsed, number of blocks scanned: ", time.Since(startTime), end-start)
 }
