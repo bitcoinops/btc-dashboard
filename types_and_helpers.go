@@ -51,11 +51,21 @@ type BlockMetrics struct {
 	UTXOIncrease     int64 `json:"utxo_increase"`
 	UTXOSizeIncrease int64 `json:"utxo_size_inc"`
 
-	// TODO: figure out how to compute without so many RPC calls...
-	NumTxnsSpendingP2SH           int
-	NumTxnsSpendingP2WPKH         int
-	NumTxnsSpendingP2WSH          int
-	NumTxnsSendingToNativeWitness int
+	NestedP2WPKHOutputsSpent int64 `json:"nested_p2wpkh_outputs_spent"`
+	NestedP2WSHOutputsSpent  int64 `json:"nested_p2wsh_outputs_spent"`
+	NativeP2WPKHOutputsSpent int64 `json:"native_p2wpkh_outputs_spent"`
+	NativeP2WSHOutputsSpent  int64 `json:"native_p2wsh_outputs_spent"`
+
+	TxsSpendingNestedP2WPKHOutputs int64 `json:"txs_spending_nested_p2wpkh_outputs"`
+	TxsSpendingNestedP2WSHOutputs  int64 `json:"txs_spending_nested_p2wsh_outputs"`
+	TxsSpendingNativeP2WPKHOutputs int64 `json:"txs_spending_native_p2wpkh_outputs"`
+	TxsSpendingNativeP2WSHOutputs  int64 `json:"txs_spending_native_p2wsh_outputs"`
+
+	NewP2WPKHOutputs int64 `json:"new_p2wpkh_outputs"`
+	NewP2WSHOutputs  int64 `json:"new_p2wsh_outputs"`
+
+	TxsCreatingP2WPKHOutputs int64 `json:"txs_creating_p2wpkh_outputs"`
+	TxsCreatingP2WSHOutputs  int64 `json:"txs_creating_p2wsh_outputs"`
 
 	NumTxnsSignalingRBF    int
 	NumTxnsThatConsolidate int
@@ -63,20 +73,10 @@ type BlockMetrics struct {
 	// Batching metrics
 	NumTxnsThatBatch int
 	NumPerSizeRange  [BATCH_RANGE_LENGTH]int
-
-	// Number of each of these output types created.
-	NumP2SHOutputsCreated   int
-	NumP2WSHOutputsCreated  int
-	NumP2WPKHOutputsCreated int
 }
 
 // Combine the metrics learned from a single transaction into the total for the block.
 func (metrics *BlockMetrics) mergeTxnMetricsDiff(diff BlockMetrics) {
-	metrics.NumTxnsSpendingP2SH += diff.NumTxnsSpendingP2SH
-	metrics.NumTxnsSpendingP2WPKH += diff.NumTxnsSpendingP2WPKH
-	metrics.NumTxnsSpendingP2WSH += diff.NumTxnsSpendingP2WSH
-	metrics.NumTxnsSendingToNativeWitness += diff.NumTxnsSendingToNativeWitness
-
 	metrics.NumTxnsSignalingRBF += diff.NumTxnsSignalingRBF
 	metrics.NumTxnsThatBatch += diff.NumTxnsThatBatch
 	metrics.NumTxnsThatConsolidate += diff.NumTxnsThatConsolidate
@@ -85,10 +85,6 @@ func (metrics *BlockMetrics) mergeTxnMetricsDiff(diff BlockMetrics) {
 	for i := 0; i < BATCH_RANGE_LENGTH; i++ {
 		metrics.NumPerSizeRange[i] += diff.NumPerSizeRange[i]
 	}
-
-	metrics.NumP2SHOutputsCreated += diff.NumP2SHOutputsCreated
-	metrics.NumP2WSHOutputsCreated += diff.NumP2WSHOutputsCreated
-	metrics.NumP2WPKHOutputsCreated += diff.NumP2WPKHOutputsCreated
 }
 
 func (metrics *BlockMetrics) setBlockStats(stats *btcjson.GetBlockStatsResult) {
@@ -128,6 +124,21 @@ func (metrics *BlockMetrics) setBlockStats(stats *btcjson.GetBlockStatsResult) {
 	metrics.Txs = stats.Txs
 	metrics.UTXOIncrease = stats.UTXOIncrease
 	metrics.UTXOSizeIncrease = stats.UTXOSizeIncrease
+
+	metrics.NestedP2WPKHOutputsSpent = stats.NestedP2WPKHOutputsSpent
+	metrics.NestedP2WSHOutputsSpent = stats.NestedP2WSHOutputsSpent
+	metrics.NativeP2WPKHOutputsSpent = stats.NestedP2WPKHOutputsSpent
+	metrics.NativeP2WSHOutputsSpent = stats.NativeP2WSHOutputsSpent
+
+	metrics.TxsSpendingNestedP2WPKHOutputs = stats.TxsSpendingNestedP2WPKHOutputs
+	metrics.TxsSpendingNestedP2WSHOutputs = stats.TxsSpendingNestedP2WSHOutputs
+	metrics.TxsSpendingNativeP2WPKHOutputs = stats.TxsSpendingNativeP2WPKHOutputs
+	metrics.TxsSpendingNativeP2WSHOutputs = stats.TxsSpendingNativeP2WSHOutputs
+
+	metrics.NewP2WPKHOutputs = stats.NewP2WPKHOutputs
+	metrics.NewP2WSHOutputs = stats.NewP2WSHOutputs
+
+	metrics.TxsCreatingP2WPKHOutputs = stats.TxsCreatingP2WPKHOutputs
 }
 
 // TODO: Check that prevout hash is all 0.
@@ -186,46 +197,6 @@ func outputIsP2WSH(txOut *wire.TxOut) bool {
 		return true
 	} else {
 		return false
-	}
-}
-
-// Updates metrics based on the address type of this spent output.
-func (metrics *BlockMetrics) setSpentOutputType(output *wire.TxOut) {
-	// TODO: Check for native SegWit address type.
-
-	if outputIsP2SH(output) {
-		metrics.NumTxnsSpendingP2SH = 1
-		return
-	}
-
-	if outputIsP2WSH(output) {
-		metrics.NumTxnsSpendingP2WSH = 1
-		return
-	}
-
-	if outputIsP2WPKH(output) {
-		metrics.NumTxnsSpendingP2WPKH = 1
-		return
-	}
-}
-
-// Updates metrics based on the address type of this created output.
-func (metrics *BlockMetrics) setCreatedOutputType(output *wire.TxOut) {
-	// TODO: Check for native SegWit address type.
-
-	if outputIsP2SH(output) {
-		metrics.NumP2SHOutputsCreated += 1
-		return
-	}
-
-	if outputIsP2WSH(output) {
-		metrics.NumP2WSHOutputsCreated += 1
-		return
-	}
-
-	if outputIsP2WPKH(output) {
-		metrics.NumP2WPKHOutputsCreated += 1
-		return
 	}
 }
 
@@ -290,29 +261,67 @@ func (metrics *BlockMetrics) setInfluxFields(fields map[string]interface{}) {
 	fields["total_fee"] = metrics.TotalFee
 
 	fields["utxo_increase"] = metrics.UTXOIncrease
-	fields["utxo_size_increase"] = metrics.UTXOIncrease
+	fields["utxo_size_increase"] = metrics.UTXOSizeIncrease
 
-	fields["frac_spending_P2SH"] = float64(metrics.NumTxnsSpendingP2SH) / float64(metrics.Txs)
-	fields["frac_spending_P2WPKH"] = float64(metrics.NumTxnsSpendingP2WPKH) / float64(metrics.Txs)
-	fields["frac_spending_P2WSH"] = float64(metrics.NumTxnsSpendingP2WSH) / float64(metrics.Txs)
-	fields["frac_sending_to_native_witness"] = float64(metrics.NumTxnsSendingToNativeWitness) / float64(metrics.Txs)
-	fields["frac_signalling_RBF"] = float64(metrics.NumTxnsSignalingRBF) / float64(metrics.Txs)
-	fields["frac_batching"] = float64(metrics.NumTxnsThatBatch) / float64(metrics.Txs)
-	fields["frac_consolidating"] = float64(metrics.NumTxnsThatConsolidate) / float64(metrics.Txs)
 	fields["num_consolidating"] = metrics.NumTxnsThatConsolidate
 	fields["num_batching"] = metrics.NumTxnsThatBatch
 
-	// Batch ranges =  [(1), (2), (3-4), (5-9), (10-49), (50-99), (100+)]
-	// TODO: name this field something more descriptive if possible.
-	fields["batch_range_0"] = float64(metrics.NumPerSizeRange[0]) / float64(metrics.Txs)
-	fields["batch_range_1"] = float64(metrics.NumPerSizeRange[1]) / float64(metrics.Txs)
-	fields["batch_range_2"] = float64(metrics.NumPerSizeRange[2]) / float64(metrics.Txs)
-	fields["batch_range_3"] = float64(metrics.NumPerSizeRange[3]) / float64(metrics.Txs)
-	fields["batch_range_4"] = float64(metrics.NumPerSizeRange[4]) / float64(metrics.Txs)
-	fields["batch_range_5"] = float64(metrics.NumPerSizeRange[5]) / float64(metrics.Txs)
-	fields["batch_range_6"] = float64(metrics.NumPerSizeRange[6]) / float64(metrics.Txs)
+	if metrics.Txs != 0 {
+		fields["frac_signalling_RBF"] = float64(metrics.NumTxnsSignalingRBF) / float64(metrics.Txs)
+		fields["frac_batching"] = float64(metrics.NumTxnsThatBatch) / float64(metrics.Txs)
+		fields["frac_consolidating"] = float64(metrics.NumTxnsThatConsolidate) / float64(metrics.Txs)
 
-	fields["num_P2SH_outputs_created"] = metrics.NumP2SHOutputsCreated
-	fields["num_P2WSH_outputs_created"] = metrics.NumP2WSHOutputsCreated
-	fields["num_P2WPKH_outputs_created"] = metrics.NumP2WPKHOutputsCreated
+		// Batch ranges =  [(1), (2), (3-4), (5-9), (10-49), (50-99), (100+)]
+		fields["batch_range_0"] = float64(metrics.NumPerSizeRange[0]) / float64(metrics.Txs)
+		fields["batch_range_1"] = float64(metrics.NumPerSizeRange[1]) / float64(metrics.Txs)
+		fields["batch_range_2"] = float64(metrics.NumPerSizeRange[2]) / float64(metrics.Txs)
+		fields["batch_range_3"] = float64(metrics.NumPerSizeRange[3]) / float64(metrics.Txs)
+		fields["batch_range_4"] = float64(metrics.NumPerSizeRange[4]) / float64(metrics.Txs)
+		fields["batch_range_5"] = float64(metrics.NumPerSizeRange[5]) / float64(metrics.Txs)
+		fields["batch_range_6"] = float64(metrics.NumPerSizeRange[6]) / float64(metrics.Txs)
+
+		fields["frac_txs_creating_native_segwit_outputs"] = float64(metrics.TxsCreatingP2WPKHOutputs+metrics.TxsCreatingP2WSHOutputs) / float64(metrics.Txs)
+		fields["frac_txs_creating_P2WSH"] = float64(metrics.TxsCreatingP2WSHOutputs) / float64(metrics.Txs)
+		fields["frac_txs_creating_P2WPKH"] = float64(metrics.TxsCreatingP2WPKHOutputs) / float64(metrics.Txs)
+	}
+
+	fields["nested_P2WPKH_outputs_spent"] = metrics.NestedP2WPKHOutputsSpent
+	fields["native_P2WPKH_outputs_spent"] = metrics.NativeP2WPKHOutputsSpent
+	fields["nested_P2WSH_outputs_spent"] = metrics.NestedP2WSHOutputsSpent
+	fields["native_P2WSH_outputs_spent"] = metrics.NativeP2WSHOutputsSpent
+
+	if metrics.Ins != 0 {
+		fields["frac_of_spent_nested_P2WPKH_outputs"] = float64(metrics.NestedP2WPKHOutputsSpent) / float64(metrics.Ins)
+		fields["frac_of_spent_native_P2WPKH_outputs"] = float64(metrics.NativeP2WPKHOutputsSpent) / float64(metrics.Ins)
+		fields["frac_of_spent_P2WPKH_outputs"] = float64(metrics.NativeP2WPKHOutputsSpent+metrics.NestedP2WPKHOutputsSpent) / float64(metrics.Ins)
+
+		fields["frac_of_spent_nested_P2WSH_outputs"] = float64(metrics.NestedP2WSHOutputsSpent) / float64(metrics.Ins)
+		fields["frac_of_spent_native_P2WSH_outputs"] = float64(metrics.NativeP2WSHOutputsSpent) / float64(metrics.Ins)
+		fields["frac_of_spent_P2WSH_outputs"] = float64(metrics.NativeP2WSHOutputsSpent+metrics.NestedP2WSHOutputsSpent) / float64(metrics.Ins)
+	}
+
+	if metrics.Outs != 0 {
+		fields["frac_out_spending_native_P2WPKH"] = float64(metrics.TxsSpendingNativeP2WPKHOutputs) / float64(metrics.Outs)
+		fields["frac_out_spending_native_P2WSH"] = float64(metrics.TxsSpendingNativeP2WSHOutputs) / float64(metrics.Outs)
+		fields["frac_out_spending_nested_P2WPKH"] = float64(metrics.TxsSpendingNestedP2WPKHOutputs) / float64(metrics.Outs)
+		fields["frac_out_spending_nested_P2WSH"] = float64(metrics.TxsSpendingNestedP2WSHOutputs) / float64(metrics.Outs)
+
+		fields["frac_of_new_outs_P2WPKH_outputs"] = float64(metrics.NewP2WPKHOutputs) / float64(metrics.Outs)
+		fields["frac_of_new_outs_P2WSH_outputs"] = float64(metrics.NewP2WSHOutputs) / float64(metrics.Outs)
+
+		fields["frac_out_spending_P2WPKH"] = float64(metrics.TxsSpendingNativeP2WPKHOutputs+metrics.TxsSpendingNestedP2WPKHOutputs) / float64(metrics.Outs)
+		fields["frac_out_spending_P2WSH"] = float64(metrics.TxsSpendingNativeP2WSHOutputs+metrics.TxsSpendingNestedP2WSHOutputs) / float64(metrics.Outs)
+
+		fields["frac_out_native_segwit"] = float64(metrics.TxsSpendingNativeP2WSHOutputs+metrics.TxsSpendingNativeP2WPKHOutputs) / float64(metrics.Outs)
+	}
+
+	if metrics.SegWitTxs != 0 {
+		fields["frac_out_native_segwit_over_total_sw"] = float64(metrics.TxsSpendingNativeP2WSHOutputs+metrics.TxsSpendingNativeP2WPKHOutputs) / float64(metrics.SegWitTxs)
+	}
+
+	fields["num_txs_creating_P2WSH"] = metrics.TxsCreatingP2WSHOutputs
+	fields["num_txs_creating_P2WPKH"] = metrics.TxsCreatingP2WPKHOutputs
+	fields["num_txs_creating_native_segwit_outputs"] = metrics.TxsCreatingP2WPKHOutputs + metrics.TxsCreatingP2WSHOutputs
+	fields["new_P2WPKH_outputs"] = metrics.NewP2WPKHOutputs
+	fields["new_P2WSH_outputs"] = metrics.NewP2WSHOutputs
 }

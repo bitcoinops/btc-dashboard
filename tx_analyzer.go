@@ -84,32 +84,33 @@ func (dash *Dashboard) shutdown() {
 	dash.iClient.Close()
 }
 
+//TODO: add arguments for start, end blocks
+const START_BLOCK = 500000
+const END_BLOCK = 500050
+
 func main() {
 	if PROFILE {
 		f, _ := os.Create("cpu.out")
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-
-	analysisTestTwo()
+	analysisTestTwo(START_BLOCK, END_BLOCK)
 }
 
-//TODO: add arguments for start, end blocks
-const START_BLOCK = 490000
-const END_BLOCK = 492000
-
 func (dash *Dashboard) analyzeBlock(blockHeight int64) {
-	// Get hash of this block.
-	blockHash, err := dash.client.GetBlockHash(blockHeight)
-	if err != nil {
-		log.Fatal("Error getting block hash", err)
-	}
+	/*
+		// Get hash of this block.
+		blockHash, err := dash.client.GetBlockHash(blockHeight)
+		if err != nil {
+			log.Fatal("Error getting block hash", err)
+		}
 
-	// Get contents of this block.
-	block, err := dash.client.GetBlock(blockHash)
-	if err != nil {
-		log.Fatal("Error getting block", err)
-	}
+		// Get contents of this block.
+		block, err := dash.client.GetBlock(blockHash)
+		if err != nil {
+			log.Fatal("Error getting block", err)
+		}
+	*/
 
 	// Fields stored in a struct (don't need to be indexed)
 	blockMetrics := BlockMetrics{}
@@ -117,27 +118,31 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 	fields := make(map[string]interface{}) // for influxdb
 
 	// Use getblockstats RPC and merge results into the metrics struct.
-	blockStats, err := dash.client.GetBlockStats(blockHeight)
+	blockStats, err := dash.client.GetBlockStats(blockHeight, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 	blockMetrics.setBlockStats(blockStats)
 
-	// Analyze each transaction, adding each one's contribution to the total set of metrics.
-	log.Println("BLOCK!!!!!!!!!!!!!!!!!!!!: ", block.Header, len(block.Transactions))
-	for _, txn := range block.Transactions {
-		diff := dash.analyzeTxn(txn)
-		blockMetrics.mergeTxnMetricsDiff(diff)
-	}
+	/*
+		// Analyze each transaction, adding each one's contribution to the total set of metrics.
+		log.Println("BLOCK!!!!!!!!!!!!!!!!!!!!: ", block.Header, len(block.Transactions))
+		for _, txn := range block.Transactions {
+			diff := dash.analyzeTxn(txn)
+			blockMetrics.mergeTxnMetricsDiff(diff)
+		}
+	*/
 
 	blockMetrics.setInfluxTags(tags)
 	blockMetrics.setInfluxFields(fields)
+
+	blockTime := time.Unix(blockMetrics.Time, 0)
 
 	pt, err := influxClient.NewPoint(
 		"block_metrics",
 		tags,
 		fields,
-		block.Header.Timestamp,
+		blockTime,
 	)
 	if err != nil {
 		log.Fatal("Error creating new point", err)
@@ -148,6 +153,7 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 	dash.bp.AddPoint(pt)
 }
 
+// TODO: Implement functionality in modified getblockstats.
 func (dash *Dashboard) analyzeTxn(txn *wire.MsgTx) BlockMetrics {
 	const RBF_THRESHOLD = uint32(0xffffffff) - 1
 	const CONSOLIDATION_MIN = 3 // Minimum number of inputs spent for it to be considered consolidation.
@@ -158,28 +164,12 @@ func (dash *Dashboard) analyzeTxn(txn *wire.MsgTx) BlockMetrics {
 	if !isCoinbaseTransaction(txn) {
 		for _, input := range txn.TxIn {
 			//  A transaction signals RBF any of if its input's sequence number is less than (0xffffffff - 1).
+
 			if input.Sequence < RBF_THRESHOLD {
 				metricsDiff.NumTxnsSignalingRBF = 1
+				break
 			}
-
-			start := time.Now()
-			// Get output spent by this input.
-			prevTx, err := dash.client.GetRawTransaction(&input.PreviousOutPoint.Hash)
-			if err != nil {
-				log.Fatal("Error getting previous output.", err, txn.TxIn[0], txn.TxHash())
-			}
-			log.Println("Time scanning input: ", time.Since(start))
-
-			prevMsgTx := prevTx.MsgTx()
-			spentOutput := prevMsgTx.TxOut[input.PreviousOutPoint.Index]
-
-			metricsDiff.setSpentOutputType(spentOutput)
 		}
-	}
-
-	// Check what kinds of outputs were created.
-	for _, output := range txn.TxOut {
-		metricsDiff.setCreatedOutputType(output)
 	}
 
 	if (len(txn.TxIn) >= CONSOLIDATION_MIN) && (len(txn.TxOut) == 1) {
@@ -194,12 +184,8 @@ func (dash *Dashboard) analyzeTxn(txn *wire.MsgTx) BlockMetrics {
 
 	return metricsDiff
 }
-func (dash *Dashboard) outputDetectionTest() {
-	// TODO: find P2SH, P2WPKH, P2WSH, native witness output
-	// transactions to test above functions on.
-}
 
-const N_WORKERS = 128
+const N_WORKERS = 12
 
 /*
 
@@ -207,7 +193,8 @@ Split up work amongst many workers, each with their own clients. so that they do
 
 
 */
-func analysisTestTwo() {
+func analysisTestTwo(start, end int) {
+
 	var wg sync.WaitGroup
 	workSplit := (END_BLOCK - START_BLOCK) / N_WORKERS
 	for i := 0; i < N_WORKERS; i++ {
@@ -225,9 +212,13 @@ func analyzeBlockRange(start, end int) {
 	dash := setupDashboard()
 	defer dash.shutdown()
 
+	log.Println(start, end)
+
 	startTime := time.Now()
 	for i := start; i < end; i++ {
+		startBlock := time.Now()
 		dash.analyzeBlock(int64(i))
+		log.Println("Done with block %v after ", i, time.Since(startBlock))
 
 		// Store points into influxdb every 1000 blocks
 		if i%1000 == 0 {
