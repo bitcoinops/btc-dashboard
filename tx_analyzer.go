@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"runtime/pprof"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -85,8 +86,8 @@ func (dash *Dashboard) shutdown() {
 }
 
 //TODO: add arguments for start, end blocks
-const START_BLOCK = 500000
-const END_BLOCK = 500050
+const START_BLOCK = 500050
+const END_BLOCK = 502000
 
 func main() {
 	if PROFILE {
@@ -94,23 +95,56 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	analysisTestTwo(START_BLOCK, END_BLOCK)
+
+	if len(os.Args) != 3 {
+		log.Fatal("Expected 2 parameters: starting blockheight and ending blockheight.")
+	}
+
+	start, err := strconv.Atoi(os.Args[1])
+	if err != nil {
+		log.Fatal("Error parsing first argument: ", err)
+	}
+
+	//		oneBlock(start)
+
+	end, err := strconv.Atoi(os.Args[2])
+	if err != nil {
+		log.Fatal("Error parsing second argument: ", err)
+	}
+
+	analysisTestTwo(start, end)
+}
+
+func oneBlock(height int) {
+	dash := setupDashboard()
+	defer dash.shutdown()
+	// Fields stored in a struct (don't need to be indexed)
+	blockMetrics := BlockMetrics{}
+
+	// Use getblockstats RPC and merge results into the metrics struct.
+	start := time.Now()
+	blockStats, err := dash.client.GetBlockStats(int64(height), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	blockMetrics.setBlockStats(blockStats)
+
+	log.Printf("Blockstats: %+v\n", blockStats)
+	log.Println("Time: ", time.Since(start))
 }
 
 func (dash *Dashboard) analyzeBlock(blockHeight int64) {
-	/*
-		// Get hash of this block.
-		blockHash, err := dash.client.GetBlockHash(blockHeight)
-		if err != nil {
-			log.Fatal("Error getting block hash", err)
-		}
+	// Get hash of this block.
+	blockHash, err := dash.client.GetBlockHash(blockHeight)
+	if err != nil {
+		log.Fatal("Error getting block hash", err)
+	}
 
-		// Get contents of this block.
-		block, err := dash.client.GetBlock(blockHash)
-		if err != nil {
-			log.Fatal("Error getting block", err)
-		}
-	*/
+	// Get contents of this block.
+	block, err := dash.client.GetBlock(blockHash)
+	if err != nil {
+		log.Fatal("Error getting block", err)
+	}
 
 	// Fields stored in a struct (don't need to be indexed)
 	blockMetrics := BlockMetrics{}
@@ -124,14 +158,34 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 	}
 	blockMetrics.setBlockStats(blockStats)
 
-	/*
-		// Analyze each transaction, adding each one's contribution to the total set of metrics.
-		log.Println("BLOCK!!!!!!!!!!!!!!!!!!!!: ", block.Header, len(block.Transactions))
-		for _, txn := range block.Transactions {
+	log.Printf("Blockstats: ")
+
+	//log.Println("BLOCK!!!!!!!!!!!!!!!!!!!!: ", block.Header, len(block.Transactions))
+
+	// Analyze each transaction, adding each one's contribution to the total set of metrics.
+	var wg sync.WaitGroup
+	diffCh := make(chan BlockMetrics, len(block.Transactions))
+
+	// Do analysis in separate go-routines, sending results down channel.
+	for _, txn := range block.Transactions {
+		wg.Add(1)
+		go func(txn *wire.MsgTx) {
 			diff := dash.analyzeTxn(txn)
-			blockMetrics.mergeTxnMetricsDiff(diff)
-		}
-	*/
+			diffCh <- diff
+			wg.Done()
+		}(txn)
+	}
+
+	// Close channel once all txns are done being analyzed.
+	go func() {
+		wg.Wait()
+		close(diffCh)
+	}()
+
+	// Merge work done by txn analyzing go-routines. Loop finishes when channel is closed above.
+	for diff := range diffCh {
+		blockMetrics.mergeTxnMetricsDiff(diff)
+	}
 
 	blockMetrics.setInfluxTags(tags)
 	blockMetrics.setInfluxFields(fields)
@@ -194,13 +248,13 @@ Split up work amongst many workers, each with their own clients. so that they do
 
 */
 func analysisTestTwo(start, end int) {
-
 	var wg sync.WaitGroup
-	workSplit := (END_BLOCK - START_BLOCK) / N_WORKERS
+	workSplit := (end - start) / N_WORKERS
+
 	for i := 0; i < N_WORKERS; i++ {
 		wg.Add(1)
 		go func(i int) {
-			analyzeBlockRange(START_BLOCK+(workSplit*i), START_BLOCK+(workSplit*(i+1)))
+			analyzeBlockRange(i, start+(workSplit*i), start+(workSplit*(i+1)))
 			wg.Done()
 		}(i)
 	}
@@ -208,7 +262,7 @@ func analysisTestTwo(start, end int) {
 }
 
 // Analyzes all blocks from in the interval [start, end)
-func analyzeBlockRange(start, end int) {
+func analyzeBlockRange(workerID, start, end int) {
 	dash := setupDashboard()
 	defer dash.shutdown()
 
@@ -218,25 +272,27 @@ func analyzeBlockRange(start, end int) {
 	for i := start; i < end; i++ {
 		startBlock := time.Now()
 		dash.analyzeBlock(int64(i))
-		log.Println("Done with block %v after ", i, time.Since(startBlock))
+		log.Printf("WORKER %v: Done with %v blocks after %v \n", workerID, i-start, time.Since(startBlock))
 
 		// Store points into influxdb every 1000 blocks
-		if i%1000 == 0 {
-			err := dash.iClient.Write(dash.bp)
-			if err != nil {
-				log.Println("DB WRITE ERR: ", err)
-			}
-
-			// Setup influx batchpoints.
-			bp, err := influxClient.NewBatchPoints(influxClient.BatchPointsConfig{
-				Database: dash.DB,
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			dash.bp = bp
+		//if i%1000 == 0 {
+		err := dash.iClient.Write(dash.bp)
+		if err != nil {
+			log.Println("DB WRITE ERR: ", err)
 		}
+
+		log.Printf("\n\n STORED INTO INFLUXDB \n\n")
+
+		// Setup influx batchpoints.
+		bp, err := influxClient.NewBatchPoints(influxClient.BatchPointsConfig{
+			Database: dash.DB,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		dash.bp = bp
+		//}
 	}
 
 	// Store any remaining points.
@@ -245,5 +301,5 @@ func analyzeBlockRange(start, end int) {
 		log.Println("DB WRITE ERR: ", err)
 	}
 
-	log.Println("Time elapsed, number of blocks scanned: ", time.Since(startTime), end-start)
+	log.Println("Time elapsed, number of blocks scanned: ", time.Since(startTime))
 }

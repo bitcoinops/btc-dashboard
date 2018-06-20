@@ -73,6 +73,15 @@ type BlockMetrics struct {
 	// Batching metrics
 	NumTxnsThatBatch int
 	NumPerSizeRange  [BATCH_RANGE_LENGTH]int
+
+	DustBins0 int64 `json:"dust_bins[0]"`
+	DustBins1 int64 `json:"dust_bins[1]"`
+	DustBins2 int64 `json:"dust_bins[2]"`
+	DustBins3 int64 `json:"dust_bins[3]"`
+	DustBins4 int64 `json:"dust_bins[4]"`
+	DustBins5 int64 `json:"dust_bins[5]"`
+	DustBins6 int64 `json:"dust_bins[6]"`
+	DustBins7 int64 `json:"dust_bins[7]"`
 }
 
 // Combine the metrics learned from a single transaction into the total for the block.
@@ -139,6 +148,15 @@ func (metrics *BlockMetrics) setBlockStats(stats *btcjson.GetBlockStatsResult) {
 	metrics.NewP2WSHOutputs = stats.NewP2WSHOutputs
 
 	metrics.TxsCreatingP2WPKHOutputs = stats.TxsCreatingP2WPKHOutputs
+
+	metrics.DustBins0 = stats.DustBins0
+	metrics.DustBins1 = stats.DustBins1
+	metrics.DustBins2 = stats.DustBins2
+	metrics.DustBins3 = stats.DustBins3
+	metrics.DustBins4 = stats.DustBins4
+	metrics.DustBins5 = stats.DustBins5
+	metrics.DustBins6 = stats.DustBins6
+	metrics.DustBins7 = stats.DustBins7
 }
 
 // TODO: Check that prevout hash is all 0.
