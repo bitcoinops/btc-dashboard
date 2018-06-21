@@ -12,13 +12,8 @@ import (
 	"time"
 )
 
-/*
-
-This program sets up a RPC connection with a local bitcoind instance,
-and an HTTP client for a local influxdb instance.
-
-*/
-
+// A Dashboard contains all the components necessary to make RPC calls to bitcoind, and
+// to place data into influxdb.
 type Dashboard struct {
 	client  *rpcclient.Client
 	iClient influxClient.Client
@@ -85,10 +80,6 @@ func (dash *Dashboard) shutdown() {
 	dash.iClient.Close()
 }
 
-//TODO: add arguments for start, end blocks
-const START_BLOCK = 500050
-const END_BLOCK = 502000
-
 func main() {
 	if PROFILE {
 		f, _ := os.Create("cpu.out")
@@ -102,24 +93,21 @@ func main() {
 
 	start, err := strconv.Atoi(os.Args[1])
 	if err != nil {
-		log.Fatal("Error parsing first argument: ", err)
+		log.Fatal("Error parsing first argument, should be an int: ", err)
 	}
-
-	//		oneBlock(start)
 
 	end, err := strconv.Atoi(os.Args[2])
 	if err != nil {
-		log.Fatal("Error parsing second argument: ", err)
+		log.Fatal("Error parsing second argument, should be an int: ", err)
 	}
 
-	analysisTestTwo(start, end)
+	analyze(start, end)
 }
 
-func oneBlock(height int) {
+// Prints result from getblockstats RPC at the given height. Used to check local changes to getblockstats.
+func checkGetBlockStatsRPC(height int) {
 	dash := setupDashboard()
 	defer dash.shutdown()
-	// Fields stored in a struct (don't need to be indexed)
-	blockMetrics := BlockMetrics{}
 
 	// Use getblockstats RPC and merge results into the metrics struct.
 	start := time.Now()
@@ -127,127 +115,16 @@ func oneBlock(height int) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	blockMetrics.setBlockStats(blockStats)
 
 	log.Printf("Blockstats: %+v\n", blockStats)
 	log.Println("Time: ", time.Since(start))
 }
 
-func (dash *Dashboard) analyzeBlock(blockHeight int64) {
-	// Get hash of this block.
-	blockHash, err := dash.client.GetBlockHash(blockHeight)
-	if err != nil {
-		log.Fatal("Error getting block hash", err)
-	}
-
-	// Get contents of this block.
-	block, err := dash.client.GetBlock(blockHash)
-	if err != nil {
-		log.Fatal("Error getting block", err)
-	}
-
-	// Fields stored in a struct (don't need to be indexed)
-	blockMetrics := BlockMetrics{}
-	tags := make(map[string]string)        // for influxdb
-	fields := make(map[string]interface{}) // for influxdb
-
-	// Use getblockstats RPC and merge results into the metrics struct.
-	blockStats, err := dash.client.GetBlockStats(blockHeight, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	blockMetrics.setBlockStats(blockStats)
-
-	log.Printf("Blockstats: ")
-
-	//log.Println("BLOCK!!!!!!!!!!!!!!!!!!!!: ", block.Header, len(block.Transactions))
-
-	// Analyze each transaction, adding each one's contribution to the total set of metrics.
-	var wg sync.WaitGroup
-	diffCh := make(chan BlockMetrics, len(block.Transactions))
-
-	// Do analysis in separate go-routines, sending results down channel.
-	for _, txn := range block.Transactions {
-		wg.Add(1)
-		go func(txn *wire.MsgTx) {
-			diff := dash.analyzeTxn(txn)
-			diffCh <- diff
-			wg.Done()
-		}(txn)
-	}
-
-	// Close channel once all txns are done being analyzed.
-	go func() {
-		wg.Wait()
-		close(diffCh)
-	}()
-
-	// Merge work done by txn analyzing go-routines. Loop finishes when channel is closed above.
-	for diff := range diffCh {
-		blockMetrics.mergeTxnMetricsDiff(diff)
-	}
-
-	blockMetrics.setInfluxTags(tags)
-	blockMetrics.setInfluxFields(fields)
-
-	blockTime := time.Unix(blockMetrics.Time, 0)
-
-	pt, err := influxClient.NewPoint(
-		"block_metrics",
-		tags,
-		fields,
-		blockTime,
-	)
-	if err != nil {
-		log.Fatal("Error creating new point", err)
-	}
-
-	log.Println("Block and metrics:", blockHeight, blockMetrics)
-
-	dash.bp.AddPoint(pt)
-}
-
-// TODO: Implement functionality in modified getblockstats.
-func (dash *Dashboard) analyzeTxn(txn *wire.MsgTx) BlockMetrics {
-	const RBF_THRESHOLD = uint32(0xffffffff) - 1
-	const CONSOLIDATION_MIN = 3 // Minimum number of inputs spent for it to be considered consolidation.
-	const BATCHING_MIN = 3      // Minimum number of outputs for it to be considered batching.
-
-	metricsDiff := BlockMetrics{}
-
-	if !isCoinbaseTransaction(txn) {
-		for _, input := range txn.TxIn {
-			//  A transaction signals RBF any of if its input's sequence number is less than (0xffffffff - 1).
-
-			if input.Sequence < RBF_THRESHOLD {
-				metricsDiff.NumTxnsSignalingRBF = 1
-				break
-			}
-		}
-	}
-
-	if (len(txn.TxIn) >= CONSOLIDATION_MIN) && (len(txn.TxOut) == 1) {
-		metricsDiff.NumTxnsThatConsolidate = 1
-	}
-
-	// Fine-grained and general batching metrics computed.
-	setBatchRangeForTxn(txn, &metricsDiff)
-	if len(txn.TxOut) >= BATCHING_MIN {
-		metricsDiff.NumTxnsThatBatch = 1
-	}
-
-	return metricsDiff
-}
-
+// TODO: Try different numbers of workers
 const N_WORKERS = 12
 
-/*
-
-Split up work amongst many workers, each with their own clients. so that they don't get bottlenecked by 1 client making RPC requests.
-
-
-*/
-func analysisTestTwo(start, end int) {
+// Splits up work across N_WORKERS workers,each with their own RPC/db clients.
+func analyze(start, end int) {
 	var wg sync.WaitGroup
 	workSplit := (end - start) / N_WORKERS
 
@@ -271,35 +148,142 @@ func analyzeBlockRange(workerID, start, end int) {
 	startTime := time.Now()
 	for i := start; i < end; i++ {
 		startBlock := time.Now()
+
 		dash.analyzeBlock(int64(i))
-		log.Printf("WORKER %v: Done with %v blocks after %v \n", workerID, i-start, time.Since(startBlock))
+		log.Printf("WORKER %v: Done with %v blocks after %v \n", workerID, i-start+1, time.Since(startBlock))
 
-		// Store points into influxdb every 1000 blocks
-		//if i%1000 == 0 {
-		err := dash.iClient.Write(dash.bp)
-		if err != nil {
-			log.Println("DB WRITE ERR: ", err)
+		// Write point to influxd.
+		// Our writes are not that frequent, so there's not much point batching.
+		// Some writes have been failing for unknown reasons so keep trying until it works.
+		// From influxd: [monitor] 2018/06/21 12:30:40 failed to store statistics: timeout
+		for {
+			err := dash.iClient.Write(dash.bp)
+			if err != nil {
+				log.Println("DB WRITE ERR: ", err)
+				log.Println("Trying DB write again...")
+				continue
+			}
+
+			log.Printf("\n\n STORED INTO INFLUXDB \n\n")
+
+			// Setup influx batchpoints.
+			bp, err := influxClient.NewBatchPoints(influxClient.BatchPointsConfig{
+				Database: dash.DB,
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			dash.bp = bp
+			break
 		}
-
-		log.Printf("\n\n STORED INTO INFLUXDB \n\n")
-
-		// Setup influx batchpoints.
-		bp, err := influxClient.NewBatchPoints(influxClient.BatchPointsConfig{
-			Database: dash.DB,
-		})
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		dash.bp = bp
-		//}
 	}
 
-	// Store any remaining points.
-	err := dash.iClient.Write(dash.bp)
+	log.Printf("Worker %v done analyzing %v blocks after %v\n", workerID, end-start, time.Since(startTime))
+}
+
+// analyzeBlock uses the getblockstats RPC to compute metrics of a single block.
+// It then stores the results in a batchpoint in the Dashboard's influx client.
+func (dash *Dashboard) analyzeBlock(blockHeight int64) {
+	// Currently, we get the blockhash to get the block contents.
+	// Block contents are used for txn analysis.
+	// TODO: Move all analysis into the getblockstats RPC handler in bitcoind.
+	blockHash, err := dash.client.GetBlockHash(blockHeight)
 	if err != nil {
-		log.Println("DB WRITE ERR: ", err)
+		log.Fatal("Error getting block hash", err)
+	}
+	block, err := dash.client.GetBlock(blockHash)
+	if err != nil {
+		log.Fatal("Error getting block", err)
 	}
 
-	log.Println("Time elapsed, number of blocks scanned: ", time.Since(startTime))
+	blockMetrics := BlockMetrics{}
+	tags := make(map[string]string)        // for influxdb
+	fields := make(map[string]interface{}) // for influxdb
+
+	// Use getblockstats RPC and merge results into the metrics struct.
+	blockStats, err := dash.client.GetBlockStats(blockHeight, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	blockMetrics.setBlockStats(blockStats)
+
+	log.Printf("Blockstats: ")
+
+	// Analyze each transaction, adding each one's contribution to the total set of metrics.
+	var wg sync.WaitGroup
+	diffCh := make(chan BlockMetrics, len(block.Transactions))
+
+	// Do analysis in separate go-routines, sending results down channel.
+	for _, txn := range block.Transactions {
+		wg.Add(1)
+		go func(txn *wire.MsgTx) {
+			diff := dash.analyzeTxn(txn)
+			diffCh <- diff
+			wg.Done()
+		}(txn)
+	}
+
+	// Close channel once all txns are done being analyzed.
+	go func() {
+		wg.Wait()
+		close(diffCh)
+	}()
+
+	// Merge work done by txn analyzing go-routines. Loop finishes when channel is closed
+	// by the goroutine created above.
+	for diff := range diffCh {
+		blockMetrics.mergeTxnMetricsDiff(diff)
+	}
+
+	// Set influx tags and fields based off of the blockMetrics computed.
+	blockMetrics.setInfluxTags(tags)
+	blockMetrics.setInfluxFields(fields)
+
+	// Create and add new influxdb point for this block.
+	blockTime := time.Unix(blockMetrics.Time, 0)
+	pt, err := influxClient.NewPoint(
+		"block_metrics",
+		tags,
+		fields,
+		blockTime,
+	)
+	if err != nil {
+		log.Fatal("Error creating new point", err)
+	}
+
+	dash.bp.AddPoint(pt)
+
+	log.Println("Block and metrics:", blockHeight, blockMetrics)
+}
+
+// TODO: Implement functionality in modified getblockstats.
+func (dash *Dashboard) analyzeTxn(txn *wire.MsgTx) BlockMetrics {
+	const RBF_THRESHOLD = uint32(0xffffffff) - 1
+	const CONSOLIDATION_MIN = 3 // Minimum number of inputs spent for it to be considered consolidation.
+	const BATCHING_MIN = 3      // Minimum number of outputs for it to be considered batching.
+
+	metricsDiff := BlockMetrics{}
+
+	if !isCoinbaseTransaction(txn) {
+		for _, input := range txn.TxIn {
+			//  A transaction signals RBF any of if its input's sequence number is less than (0xffffffff - 1).
+			if input.Sequence < RBF_THRESHOLD {
+				metricsDiff.NumTxnsSignalingRBF = 1
+				break
+			}
+		}
+	}
+
+	if (len(txn.TxIn) >= CONSOLIDATION_MIN) && (len(txn.TxOut) == 1) {
+		metricsDiff.NumTxnsThatConsolidate = 1
+	}
+
+	// Fine-grained and general batching metrics computed.
+	setBatchRangeForTxn(txn, &metricsDiff)
+	if len(txn.TxOut) >= BATCHING_MIN {
+		metricsDiff.NumTxnsThatBatch = 1
+	}
+
+	return metricsDiff
 }

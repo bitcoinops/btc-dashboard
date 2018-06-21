@@ -65,7 +65,7 @@ type BlockMetrics struct {
 	NewP2WSHOutputs  int64 `json:"new_p2wsh_outputs"`
 
 	TxsCreatingP2WPKHOutputs int64 `json:"txs_creating_p2wpkh_outputs"`
-	TxsCreatingP2WSHOutputs  int64 `json:"txs_creating_p2wsh_outputs"`
+	TxsCreatingP2WSHOutputs  int64 `json:"txs_creating_p2wsh_outputs"n`
 
 	NumTxnsSignalingRBF    int
 	NumTxnsThatConsolidate int
@@ -82,6 +82,7 @@ type BlockMetrics struct {
 	DustBins5 int64 `json:"dust_bins[5]"`
 	DustBins6 int64 `json:"dust_bins[6]"`
 	DustBins7 int64 `json:"dust_bins[7]"`
+	DustBins8 int64 `json:"dust_bins[8]"`
 }
 
 // Combine the metrics learned from a single transaction into the total for the block.
@@ -281,13 +282,14 @@ func (metrics *BlockMetrics) setInfluxFields(fields map[string]interface{}) {
 	fields["utxo_increase"] = metrics.UTXOIncrease
 	fields["utxo_size_increase"] = metrics.UTXOSizeIncrease
 
-	fields["num_consolidating"] = metrics.NumTxnsThatConsolidate
-	fields["num_batching"] = metrics.NumTxnsThatBatch
+	fields["num_consolidating_txs"] = metrics.NumTxnsThatConsolidate
+	fields["num_batching_txs"] = metrics.NumTxnsThatBatch
 
+	// Avoid divide by 0 errors.
 	if metrics.Txs != 0 {
-		fields["frac_signalling_RBF"] = float64(metrics.NumTxnsSignalingRBF) / float64(metrics.Txs)
-		fields["frac_batching"] = float64(metrics.NumTxnsThatBatch) / float64(metrics.Txs)
-		fields["frac_consolidating"] = float64(metrics.NumTxnsThatConsolidate) / float64(metrics.Txs)
+		fields["percent_txs_signalling_RBF"] = float64(metrics.NumTxnsSignalingRBF) / float64(metrics.Txs)
+		fields["percent_txs_batching"] = float64(metrics.NumTxnsThatBatch) / float64(metrics.Txs)
+		fields["percent_txs_consolidating"] = float64(metrics.NumTxnsThatConsolidate) / float64(metrics.Txs)
 
 		// Batch ranges =  [(1), (2), (3-4), (5-9), (10-49), (50-99), (100+)]
 		fields["batch_range_0"] = float64(metrics.NumPerSizeRange[0]) / float64(metrics.Txs)
@@ -298,9 +300,17 @@ func (metrics *BlockMetrics) setInfluxFields(fields map[string]interface{}) {
 		fields["batch_range_5"] = float64(metrics.NumPerSizeRange[5]) / float64(metrics.Txs)
 		fields["batch_range_6"] = float64(metrics.NumPerSizeRange[6]) / float64(metrics.Txs)
 
-		fields["frac_txs_creating_native_segwit_outputs"] = float64(metrics.TxsCreatingP2WPKHOutputs+metrics.TxsCreatingP2WSHOutputs) / float64(metrics.Txs)
-		fields["frac_txs_creating_P2WSH"] = float64(metrics.TxsCreatingP2WSHOutputs) / float64(metrics.Txs)
-		fields["frac_txs_creating_P2WPKH"] = float64(metrics.TxsCreatingP2WPKHOutputs) / float64(metrics.Txs)
+		fields["percent_txs_creating_native_segwit_outputs"] = float64(metrics.TxsCreatingP2WPKHOutputs+metrics.TxsCreatingP2WSHOutputs) / float64(metrics.Txs)
+		fields["percent_txs_creating_P2WSH_outputs"] = float64(metrics.TxsCreatingP2WSHOutputs) / float64(metrics.Txs)
+		fields["percent_txs_creating_P2WPKH_outputs"] = float64(metrics.TxsCreatingP2WPKHOutputs) / float64(metrics.Txs)
+
+		fields["percent_txs_spending_native_segwit_outputs"] = float64(metrics.TxsSpendingNativeP2WPKHOutputs+metrics.TxsSpendingNativeP2WSHOutputs) / float64(metrics.Txs)
+		fields["percent_txs_spending_native_P2WPKH_outputs"] = float64(metrics.TxsSpendingNativeP2WPKHOutputs) / float64(metrics.Txs)
+		fields["percent_txs_spending_native_P2WSH_outputs"] = float64(metrics.TxsSpendingNativeP2WSHOutputs) / float64(metrics.Txs)
+		fields["percent_txs_spending_nested_P2WPKH_outputs"] = float64(metrics.TxsSpendingNestedP2WPKHOutputs) / float64(metrics.Txs)
+		fields["percent_txs_spending_nested_P2WSH_outputs"] = float64(metrics.TxsSpendingNestedP2WSHOutputs) / float64(metrics.Txs)
+
+		fields["percent_txs_that_are_segwit_txs"] = float64(metrics.SegWitTxs) / float64(metrics.Txs)
 	}
 
 	fields["nested_P2WPKH_outputs_spent"] = metrics.NestedP2WPKHOutputsSpent
@@ -308,33 +318,53 @@ func (metrics *BlockMetrics) setInfluxFields(fields map[string]interface{}) {
 	fields["nested_P2WSH_outputs_spent"] = metrics.NestedP2WSHOutputsSpent
 	fields["native_P2WSH_outputs_spent"] = metrics.NativeP2WSHOutputsSpent
 
+	// Avoid divide by 0 errors.
 	if metrics.Ins != 0 {
-		fields["frac_of_spent_nested_P2WPKH_outputs"] = float64(metrics.NestedP2WPKHOutputsSpent) / float64(metrics.Ins)
-		fields["frac_of_spent_native_P2WPKH_outputs"] = float64(metrics.NativeP2WPKHOutputsSpent) / float64(metrics.Ins)
-		fields["frac_of_spent_P2WPKH_outputs"] = float64(metrics.NativeP2WPKHOutputsSpent+metrics.NestedP2WPKHOutputsSpent) / float64(metrics.Ins)
+		fields["percent_of_inputs_spending_nested_P2WPKH_output"] = float64(metrics.NestedP2WPKHOutputsSpent) / float64(metrics.Ins)
+		fields["percent_of_inputs_spending_native_P2WPKH_outputs"] = float64(metrics.NativeP2WPKHOutputsSpent) / float64(metrics.Ins)
+		fields["percent_of_inputs_spending_P2WPKH_outputs"] = float64(metrics.NativeP2WPKHOutputsSpent+metrics.NestedP2WPKHOutputsSpent) / float64(metrics.Ins)
 
-		fields["frac_of_spent_nested_P2WSH_outputs"] = float64(metrics.NestedP2WSHOutputsSpent) / float64(metrics.Ins)
-		fields["frac_of_spent_native_P2WSH_outputs"] = float64(metrics.NativeP2WSHOutputsSpent) / float64(metrics.Ins)
-		fields["frac_of_spent_P2WSH_outputs"] = float64(metrics.NativeP2WSHOutputsSpent+metrics.NestedP2WSHOutputsSpent) / float64(metrics.Ins)
+		fields["percent_of_inputs_spending_nested_P2WSH_outputs"] = float64(metrics.NestedP2WSHOutputsSpent) / float64(metrics.Ins)
+		fields["percent_of_inputs_spending_native_P2WSH_outputs"] = float64(metrics.NativeP2WSHOutputsSpent) / float64(metrics.Ins)
+		fields["percent_of_inputs_spending_P2WSH_outputs"] = float64(metrics.NativeP2WSHOutputsSpent+metrics.NestedP2WSHOutputsSpent) / float64(metrics.Ins)
+
+		fields["percent_of_inputs_spending_native_sw_outputs"] = float64(metrics.NativeP2WSHOutputsSpent+metrics.NativeP2WSHOutputsSpent) / float64(metrics.Ins)
 	}
 
+	/*
+	   const CFeeRate dust_fee_rates[NUM_DUST_BINS] = {CFeeRate(1*1000), CFeeRate(5*1000), CFeeRate(10*1000), CFeeRate(25*1000),CFeeRate(50*1000), CFeeRate(100*1000), CFeeRate(250*1000), CFeeRate(500*1000), CFeeRate(1000*1000)};
+
+	*/
+
+	fields["dust_bin_0"] = float64(metrics.DustBins0)
+	fields["dust_bin_1"] = float64(metrics.DustBins1)
+	fields["dust_bin_2"] = float64(metrics.DustBins2)
+	fields["dust_bin_3"] = float64(metrics.DustBins3)
+	fields["dust_bin_4"] = float64(metrics.DustBins4)
+	fields["dust_bin_5"] = float64(metrics.DustBins5)
+	fields["dust_bin_6"] = float64(metrics.DustBins6)
+	fields["dust_bin_7"] = float64(metrics.DustBins7)
+	fields["dust_bin_8"] = float64(metrics.DustBins8)
+
+	// Avoid divide by 0 errors.
 	if metrics.Outs != 0 {
-		fields["frac_out_spending_native_P2WPKH"] = float64(metrics.TxsSpendingNativeP2WPKHOutputs) / float64(metrics.Outs)
-		fields["frac_out_spending_native_P2WSH"] = float64(metrics.TxsSpendingNativeP2WSHOutputs) / float64(metrics.Outs)
-		fields["frac_out_spending_nested_P2WPKH"] = float64(metrics.TxsSpendingNestedP2WPKHOutputs) / float64(metrics.Outs)
-		fields["frac_out_spending_nested_P2WSH"] = float64(metrics.TxsSpendingNestedP2WSHOutputs) / float64(metrics.Outs)
+		fields["percent_new_outs_P2WPKH_outputs"] = float64(metrics.NewP2WPKHOutputs) / float64(metrics.Outs)
+		fields["percent_new_outs_P2WSH_outputs"] = float64(metrics.NewP2WSHOutputs) / float64(metrics.Outs)
 
-		fields["frac_of_new_outs_P2WPKH_outputs"] = float64(metrics.NewP2WPKHOutputs) / float64(metrics.Outs)
-		fields["frac_of_new_outs_P2WSH_outputs"] = float64(metrics.NewP2WSHOutputs) / float64(metrics.Outs)
-
-		fields["frac_out_spending_P2WPKH"] = float64(metrics.TxsSpendingNativeP2WPKHOutputs+metrics.TxsSpendingNestedP2WPKHOutputs) / float64(metrics.Outs)
-		fields["frac_out_spending_P2WSH"] = float64(metrics.TxsSpendingNativeP2WSHOutputs+metrics.TxsSpendingNestedP2WSHOutputs) / float64(metrics.Outs)
-
-		fields["frac_out_native_segwit"] = float64(metrics.TxsSpendingNativeP2WSHOutputs+metrics.TxsSpendingNativeP2WPKHOutputs) / float64(metrics.Outs)
+		fields["percent_outs_in_dust_bin_0"] = float64(metrics.DustBins0) / float64(metrics.Outs)
+		fields["percent_outs_in_ddust_bin_1"] = float64(metrics.DustBins1) / float64(metrics.Outs)
+		fields["percent_outs_in_dust_bin_2"] = float64(metrics.DustBins2) / float64(metrics.Outs)
+		fields["percent_outs_in_dust_bin_3"] = float64(metrics.DustBins3) / float64(metrics.Outs)
+		fields["percent_outs_in_dust_bin_4"] = float64(metrics.DustBins4) / float64(metrics.Outs)
+		fields["percent_outs_in_dust_bin_5"] = float64(metrics.DustBins5) / float64(metrics.Outs)
+		fields["percent_outs_in_dust_bin_6"] = float64(metrics.DustBins6) / float64(metrics.Outs)
+		fields["percent_outs_in_dust_bin_7"] = float64(metrics.DustBins7) / float64(metrics.Outs)
+		fields["percent_outs_in_dust_bin_8"] = float64(metrics.DustBins8) / float64(metrics.Outs)
 	}
 
+	// Avoid divide by 0 errors.
 	if metrics.SegWitTxs != 0 {
-		fields["frac_out_native_segwit_over_total_sw"] = float64(metrics.TxsSpendingNativeP2WSHOutputs+metrics.TxsSpendingNativeP2WPKHOutputs) / float64(metrics.SegWitTxs)
+		fields["percent_txs_native_segwit_over_total_sw_txs"] = float64(metrics.TxsSpendingNativeP2WSHOutputs+metrics.TxsSpendingNativeP2WPKHOutputs) / float64(metrics.SegWitTxs)
 	}
 
 	fields["num_txs_creating_P2WSH"] = metrics.TxsCreatingP2WSHOutputs
