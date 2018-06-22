@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/btcsuite/btcd/rpcclient"
-	"github.com/btcsuite/btcd/wire"
 	influxClient "github.com/influxdata/influxdb/client/v2"
 	"log"
 	"os"
@@ -185,63 +184,25 @@ func analyzeBlockRange(workerID, start, end int) {
 // analyzeBlock uses the getblockstats RPC to compute metrics of a single block.
 // It then stores the results in a batchpoint in the Dashboard's influx client.
 func (dash *Dashboard) analyzeBlock(blockHeight int64) {
-	// Currently, we get the blockhash to get the block contents.
-	// Block contents are used for txn analysis.
-	// TODO: Move all analysis into the getblockstats RPC handler in bitcoind.
-	blockHash, err := dash.client.GetBlockHash(blockHeight)
-	if err != nil {
-		log.Fatal("Error getting block hash", err)
-	}
-	block, err := dash.client.GetBlock(blockHash)
-	if err != nil {
-		log.Fatal("Error getting block", err)
-	}
-
-	blockMetrics := BlockMetrics{}
 	tags := make(map[string]string)        // for influxdb
 	fields := make(map[string]interface{}) // for influxdb
 
 	// Use getblockstats RPC and merge results into the metrics struct.
-	blockStats, err := dash.client.GetBlockStats(blockHeight, nil)
+	blockStatsRes, err := dash.client.GetBlockStats(blockHeight, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	blockMetrics.setBlockStats(blockStats)
 
 	log.Printf("Blockstats: ")
 
-	// Analyze each transaction, adding each one's contribution to the total set of metrics.
-	var wg sync.WaitGroup
-	diffCh := make(chan BlockMetrics, len(block.Transactions))
+	blockStats := BlockStats{blockStatsRes}
 
-	// Do analysis in separate go-routines, sending results down channel.
-	for _, txn := range block.Transactions {
-		wg.Add(1)
-		go func(txn *wire.MsgTx) {
-			diff := dash.analyzeTxn(txn)
-			diffCh <- diff
-			wg.Done()
-		}(txn)
-	}
-
-	// Close channel once all txns are done being analyzed.
-	go func() {
-		wg.Wait()
-		close(diffCh)
-	}()
-
-	// Merge work done by txn analyzing go-routines. Loop finishes when channel is closed
-	// by the goroutine created above.
-	for diff := range diffCh {
-		blockMetrics.mergeTxnMetricsDiff(diff)
-	}
-
-	// Set influx tags and fields based off of the blockMetrics computed.
-	blockMetrics.setInfluxTags(tags)
-	blockMetrics.setInfluxFields(fields)
+	// Set influx tags and fields based off of the block stats computed.
+	blockStats.setInfluxTags(tags, blockHeight)
+	blockStats.setInfluxFields(fields)
 
 	// Create and add new influxdb point for this block.
-	blockTime := time.Unix(blockMetrics.Time, 0)
+	blockTime := time.Unix(blockStats.Time, 0)
 	pt, err := influxClient.NewPoint(
 		"block_metrics",
 		tags,
@@ -254,36 +215,5 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 
 	dash.bp.AddPoint(pt)
 
-	log.Println("Block and metrics:", blockHeight, blockMetrics)
-}
-
-// TODO: Implement functionality in modified getblockstats.
-func (dash *Dashboard) analyzeTxn(txn *wire.MsgTx) BlockMetrics {
-	const RBF_THRESHOLD = uint32(0xffffffff) - 1
-	const CONSOLIDATION_MIN = 3 // Minimum number of inputs spent for it to be considered consolidation.
-	const BATCHING_MIN = 3      // Minimum number of outputs for it to be considered batching.
-
-	metricsDiff := BlockMetrics{}
-
-	if !isCoinbaseTransaction(txn) {
-		for _, input := range txn.TxIn {
-			//  A transaction signals RBF any of if its input's sequence number is less than (0xffffffff - 1).
-			if input.Sequence < RBF_THRESHOLD {
-				metricsDiff.NumTxnsSignalingRBF = 1
-				break
-			}
-		}
-	}
-
-	if (len(txn.TxIn) >= CONSOLIDATION_MIN) && (len(txn.TxOut) == 1) {
-		metricsDiff.NumTxnsThatConsolidate = 1
-	}
-
-	// Fine-grained and general batching metrics computed.
-	setBatchRangeForTxn(txn, &metricsDiff)
-	if len(txn.TxOut) >= BATCHING_MIN {
-		metricsDiff.NumTxnsThatBatch = 1
-	}
-
-	return metricsDiff
+	log.Println("Block and metrics:", blockHeight, blockStats)
 }
