@@ -158,6 +158,7 @@ func (metrics *BlockMetrics) setBlockStats(stats *btcjson.GetBlockStatsResult) {
 	metrics.DustBins5 = stats.DustBins5
 	metrics.DustBins6 = stats.DustBins6
 	metrics.DustBins7 = stats.DustBins7
+	metrics.DustBins8 = stats.DustBins8
 }
 
 // TODO: Check that prevout hash is all 0.
