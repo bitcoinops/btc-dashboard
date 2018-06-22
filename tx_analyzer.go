@@ -149,7 +149,7 @@ func analyzeBlockRange(workerID, start, end int) {
 		startBlock := time.Now()
 
 		dash.analyzeBlock(int64(i))
-		log.Printf("WORKER %v: Done with %v blocks after %v \n", workerID, i-start+1, time.Since(startBlock))
+		log.Printf("WORKER %v: Done with %v blocks (height=%v) after %v \n", workerID, i-start+1, i, time.Since(startBlock))
 
 		// Write point to influxd.
 		// Our writes are not that frequent, so there's not much point batching.
@@ -178,7 +178,7 @@ func analyzeBlockRange(workerID, start, end int) {
 		}
 	}
 
-	log.Printf("Worker %v done analyzing %v blocks after %v\n", workerID, end-start, time.Since(startTime))
+	log.Printf("Worker %v done analyzing %v blocks (height=%v) after %v\n", workerID, end-start, end, time.Since(startTime))
 }
 
 // analyzeBlock uses the getblockstats RPC to compute metrics of a single block.
@@ -192,8 +192,6 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	log.Printf("Blockstats: ")
 
 	blockStats := BlockStats{blockStatsRes}
 
@@ -214,6 +212,4 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 	}
 
 	dash.bp.AddPoint(pt)
-
-	log.Println("Block and metrics:", blockHeight, blockStats)
 }
