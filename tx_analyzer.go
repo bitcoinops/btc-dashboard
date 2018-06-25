@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/btcsuite/btcd/rpcclient"
 	influxClient "github.com/influxdata/influxdb/client/v2"
 	"log"
@@ -86,21 +87,35 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	if len(os.Args) != 3 {
-		log.Fatal("Expected 2 parameters: starting blockheight and ending blockheight.")
+	// Given one argument, test getblockstats.
+	if len(os.Args) == 1 {
+		blockHeight, err := strconv.Atoi(os.Args[1])
+		if err != nil {
+			log.Fatal("Error parsing argument, should be an int: ", err)
+		}
+
+		checkGetBlockStatsRPC(blockHeight)
+		return
 	}
 
-	start, err := strconv.Atoi(os.Args[1])
-	if err != nil {
-		log.Fatal("Error parsing first argument, should be an int: ", err)
+	if len(os.Args) == 3 {
+		start, err := strconv.Atoi(os.Args[1])
+		if err != nil {
+			log.Fatal("Error parsing first argument, should be an int: ", err)
+		}
+
+		end, err := strconv.Atoi(os.Args[2])
+		if err != nil {
+			log.Fatal("Error parsing second argument, should be an int: ", err)
+		}
+
+		analyze(start, end)
+		return
 	}
 
-	end, err := strconv.Atoi(os.Args[2])
-	if err != nil {
-		log.Fatal("Error parsing second argument, should be an int: ", err)
-	}
-
-	analyze(start, end)
+	// Given no arguments, perform the recovery process and start live analysis.
+	recoverFromFailure()
+	doLiveAnalysis()
 }
 
 // Prints result from getblockstats RPC at the given height. Used to check local changes to getblockstats.
@@ -120,25 +135,42 @@ func checkGetBlockStatsRPC(height int) {
 }
 
 // TODO: Try different numbers of workers
-const N_WORKERS = 12
+const N_WORKERS = 18
 
 // Splits up work across N_WORKERS workers,each with their own RPC/db clients.
 func analyze(start, end int) {
 	var wg sync.WaitGroup
 	workSplit := (end - start) / N_WORKERS
 
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create the progress directory if it doesn't already exist.
+	workerProgressDir := currentDir + "/worker-progress"
+	if _, err := os.Stat(workerProgressDir); os.IsNotExist(err) {
+		log.Printf("Creating worker progress directory at: %v\n", workerProgressDir)
+		err := os.Mkdir(workerProgressDir, 0777)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	for i := 0; i < N_WORKERS; i++ {
 		wg.Add(1)
 		go func(i int) {
-			analyzeBlockRange(i, start+(workSplit*i), start+(workSplit*(i+1)))
+			analyzeBlockRange(i, start+(workSplit*i), start+(workSplit*(i+1)), workerProgressDir)
 			wg.Done()
 		}(i)
 	}
 	wg.Wait()
 }
 
+const DB_WAIT_TIME = 30
+
 // Analyzes all blocks from in the interval [start, end)
-func analyzeBlockRange(workerID, start, end int) {
+func analyzeBlockRange(workerID, start, end int, dir string) {
 	dash := setupDashboard()
 	defer dash.shutdown()
 
@@ -148,21 +180,36 @@ func analyzeBlockRange(workerID, start, end int) {
 	// If it was less than 5 seconds ago. don't write yet.
 	// prevents us from overwhelming influxdb
 	lastWriteTime := time.Now()
-	lastWriteTime.Add(5 * time.Second)
-
+	lastWriteTime = lastWriteTime.Add(DB_WAIT_TIME * time.Second)
 	startTime := time.Now()
+
+	// Get name for this worker's progress file.
+	formattedTime := lastWriteTime.Format("01-02:15:04")
+	workFile := fmt.Sprintf("%v/worker-%v_%v", dir, workerID, formattedTime)
+
+	// Create file to record progress in.
+	file, err := os.Create(workFile)
+	defer file.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Record progress in file.
+	progress := fmt.Sprintf("Start=%v\nLast=%v\nEnd=%v", start, start, end)
+	_, err = file.WriteAt([]byte(progress), 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	for i := start; i < end; i++ {
 		startBlock := time.Now()
 
 		dash.analyzeBlock(int64(i))
-		log.Printf("WORKER %v: Done with %v blocks (height=%v) after %v \n", workerID, i-start+1, i, time.Since(startBlock))
+		log.Printf("Worker %v: Done with %v blocks (height=%v) after %v \n", workerID, i-start+1, i, time.Since(startBlock))
 
-		// Write point to influxd.
-		// Our writes are not that frequent, so there's not much point batching.
-		// Some writes have been failing for unknown reasons so keep trying until it works.
-		// From influxd: [monitor] 2018/06/21 12:30:40 failed to store statistics: timeout
-
-		if !time.Now().After(lastWriteTime) {
+		// Only perform the write to influxDB if there hasn't been a write in the last 5 seconds.
+		// And make sure to do the write before finishing.
+		if !time.Now().After(lastWriteTime) && (i != end-1) {
 			continue
 		}
 
@@ -171,6 +218,7 @@ func analyzeBlockRange(workerID, start, end int) {
 			if err != nil {
 				log.Println("DB WRITE ERR: ", err)
 				log.Println("Trying DB write again...")
+				time.Sleep(1 * time.Second) // Sleep to give DB a break.
 				continue
 			}
 
@@ -189,7 +237,20 @@ func analyzeBlockRange(workerID, start, end int) {
 		}
 
 		lastWriteTime = time.Now()
-		lastWriteTime.Add(5 * time.Second)
+		lastWriteTime.Add(DB_WAIT_TIME * time.Second)
+
+		// Record progress in file, overwriting previous record.
+		progress := fmt.Sprintf("Start=%v\nLast=%v\nEnd=%v", start, i, end)
+		_, err = file.WriteAt([]byte(progress), 0)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	// Worker finished successfully so its progress record is unneeded.
+	err = os.Remove(workFile)
+	if err != nil {
+		log.Printf("Error removing %v: %v\n", workFile, err)
 	}
 
 	log.Printf("Worker %v done analyzing %v blocks (height=%v) after %v\n", workerID, end-start, end, time.Since(startTime))
@@ -226,4 +287,18 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 	}
 
 	dash.bp.AddPoint(pt)
+}
+
+// recoverFromFailure checks the worker-progress directory for any unfinished work from a previous job.
+// If there is any, it starts a new worker to continue the work for each previously failed worker.
+func recoverFromFailure() {
+	// TODO: implement
+}
+
+// doLiveAnalysis does an analysis of blocks as they come in live.
+// In order to avoid dealing with re-org in this code-base, it should
+// stay at least 6 blocks behind.
+func doLiveAnalysis() {
+	// TODO: implement
+
 }
