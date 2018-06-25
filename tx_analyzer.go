@@ -144,6 +144,12 @@ func analyzeBlockRange(workerID, start, end int) {
 
 	log.Println(start, end)
 
+	// Keep track of time since last write.
+	// If it was less than 5 seconds ago. don't write yet.
+	// prevents us from overwhelming influxdb
+	lastWriteTime := time.Now()
+	lastWriteTime.Add(5 * time.Second)
+
 	startTime := time.Now()
 	for i := start; i < end; i++ {
 		startBlock := time.Now()
@@ -155,6 +161,11 @@ func analyzeBlockRange(workerID, start, end int) {
 		// Our writes are not that frequent, so there's not much point batching.
 		// Some writes have been failing for unknown reasons so keep trying until it works.
 		// From influxd: [monitor] 2018/06/21 12:30:40 failed to store statistics: timeout
+
+		if !time.Now().After(lastWriteTime) {
+			continue
+		}
+
 		for {
 			err := dash.iClient.Write(dash.bp)
 			if err != nil {
@@ -176,6 +187,9 @@ func analyzeBlockRange(workerID, start, end int) {
 			dash.bp = bp
 			break
 		}
+
+		lastWriteTime = time.Now()
+		lastWriteTime.Add(5 * time.Second)
 	}
 
 	log.Printf("Worker %v done analyzing %v blocks (height=%v) after %v\n", workerID, end-start, end, time.Since(startTime))
