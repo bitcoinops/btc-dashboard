@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"github.com/btcsuite/btcd/rpcclient"
 	influxClient "github.com/influxdata/influxdb/client/v2"
+	"io/ioutil"
 	"log"
 	"os"
 	"runtime/pprof"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -88,7 +90,7 @@ func main() {
 	}
 
 	// Given one argument, test getblockstats.
-	if len(os.Args) == 1 {
+	if len(os.Args) == 2 {
 		blockHeight, err := strconv.Atoi(os.Args[1])
 		if err != nil {
 			log.Fatal("Error parsing argument, should be an int: ", err)
@@ -177,7 +179,7 @@ func analyzeBlockRange(workerID, start, end int, dir string) {
 	log.Println(start, end)
 
 	// Keep track of time since last write.
-	// If it was less than 5 seconds ago. don't write yet.
+	// If it was less than DB_WAIT_TIME seconds ago. don't write yet.
 	// prevents us from overwhelming influxdb
 	lastWriteTime := time.Now()
 	lastWriteTime = lastWriteTime.Add(DB_WAIT_TIME * time.Second)
@@ -292,7 +294,72 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 // recoverFromFailure checks the worker-progress directory for any unfinished work from a previous job.
 // If there is any, it starts a new worker to continue the work for each previously failed worker.
 func recoverFromFailure() {
-	// TODO: implement
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// If there is not worker-progress directory, then there aren't any failures :)
+	workerProgressDir := currentDir + "/worker-progress"
+	if _, err := os.Stat(workerProgressDir); os.IsNotExist(err) {
+		return
+	}
+
+	files, err := ioutil.ReadDir(workerProgressDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var wg sync.WaitGroup
+	for i, file := range files {
+		contentsBytes, err := ioutil.ReadFile(workerProgressDir + "/" + file.Name())
+		if err != nil {
+			log.Fatal(err)
+		}
+		contents := string(contentsBytes)
+		start, lastDone, end := parseProgress(contents)
+
+		log.Printf("Starting worker %v on range [%v, %v) at height %v\n", i, start, end, lastDone)
+
+		wg.Add(1)
+		go func(i int) {
+			analyzeBlockRange(i, lastDone, end, workerProgressDir)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+
+	for _, file := range files {
+		// Recovery finished successfully so its progress record is unneeded.
+		err = os.Remove(workerProgressDir + "/" + file.Name())
+		if err != nil {
+			log.Printf("Error removing %v: %v\n", file.Name(), err)
+		}
+	}
+}
+
+// parseProgress takes in the contents of a worker-progress file
+// and returns the starting height, the last height completed, and the end height.
+func parseProgress(contents string) (int, int, int) {
+	lines := strings.Split(contents, "\n")
+	result := []int{0, 0, 0}
+
+	for i, line := range lines {
+		split := strings.Split(line, "=")
+
+		height, err := strconv.Atoi(split[1])
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		result[i] = height
+	}
+
+	if !((result[0] <= result[1]) && (result[1] < result[2]-1)) {
+		log.Fatal("Expected contents of unfinished progress file: ", result)
+	}
+
+	return result[0], result[1], result[2]
 }
 
 // doLiveAnalysis does an analysis of blocks as they come in live.
