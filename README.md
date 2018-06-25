@@ -13,11 +13,15 @@ Then run `go build`
 
 ## Usage
 ```
-./btc-dashboard [start_blockheight] [end_blockheight]
+./btc-dashboard [OPTIONAL: start_blockheight] [OPTIONAL: end_blockheight]
 ```
-Running the above command will start the analysis process that enters statistics about every block in the given range into influxdb.
+Running the binary with one integer parameter will print out the result of the getblockstats RPC at the given blockheight.
 
-Results can be plugged into Grafana for visualization.
+Running the above command with 2 integer parameters will start the analysis process that enters statistics about every block in the given range into influxdb. Several workers are created in this process, and their progress is tracked in files under a directory `worker-progress`.
+
+Running the binary without any arguments will start a recovery process that reads `worker-progress` files left over by failures and finishes any work that is unfinished. It then starts a live analysis of incoming blocks.
+
+Results from influxdb can be plugged into Grafana for visualization.
 
 ## Stats Tracked
 (TBD) Whatever fields are set in `setInfluxFields`
