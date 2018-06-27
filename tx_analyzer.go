@@ -160,10 +160,15 @@ func analyze(start, end int) {
 		}
 	}
 
+	formattedTime := time.Now().Format("01-02:15:04")
+
 	for i := 0; i < N_WORKERS; i++ {
 		wg.Add(1)
 		go func(i int) {
-			analyzeBlockRange(i, start+(workSplit*i), start+(workSplit*(i+1)), workerProgressDir, true)
+			// Get name for this worker's progress file.
+			workFile := fmt.Sprintf("%v/worker-%v_%v", workerProgressDir, i, formattedTime)
+
+			analyzeBlockRange(i, start+(workSplit*i), start+(workSplit*(i+1)), workFile)
 			wg.Done()
 		}(i)
 	}
@@ -173,7 +178,7 @@ func analyze(start, end int) {
 const DB_WAIT_TIME = 30
 
 // Analyzes all blocks from in the interval [start, end)
-func analyzeBlockRange(workerID, start, end int, dir string, recordProgress bool) {
+func analyzeBlockRange(workerID, start, end int, workFile string) {
 	dash := setupDashboard()
 	defer dash.shutdown()
 
@@ -186,28 +191,19 @@ func analyzeBlockRange(workerID, start, end int, dir string, recordProgress bool
 	lastWriteTime = lastWriteTime.Add(DB_WAIT_TIME * time.Second)
 	startTime := time.Now()
 
-	// Get name for this worker's progress file.
-	formattedTime := lastWriteTime.Format("01-02:15:04")
-	workFile := fmt.Sprintf("%v/worker-%v_%v", dir, workerID, formattedTime)
+	// Create file to record progress in.
+	// If the file already exists, this truncates it which is ok.
+	file, err := os.Create(workFile)
+	defer file.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	var file *os.File
-	var progress string
-	var err error
-
-	if recordProgress {
-		// Create file to record progress in.
-		file, err := os.Create(workFile)
-		defer file.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Record progress in file.
-		progress = fmt.Sprintf("Start=%v\nLast=%v\nEnd=%v", start, start, end)
-		_, err = file.WriteAt([]byte(progress), 0)
-		if err != nil {
-			log.Fatal(err)
-		}
+	// Record progress in file.
+	progress := fmt.Sprintf("Start=%v\nLast=%v\nEnd=%v", start, start, end)
+	_, err = file.WriteAt([]byte(progress), 0)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	for i := start; i < end; i++ {
@@ -231,39 +227,36 @@ func analyzeBlockRange(workerID, start, end int, dir string, recordProgress bool
 				continue
 			}
 
-			log.Printf("\n\n STORED INTO INFLUXDB \n\n")
-
-			// Setup influx batchpoints.
-			bp, err := influxClient.NewBatchPoints(influxClient.BatchPointsConfig{
-				Database: dash.DB,
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			dash.bp = bp
 			break
 		}
+
+		log.Printf("\n\n STORED INTO INFLUXDB \n\n")
+
+		// Setup influx batchpoints.
+		bp, err := influxClient.NewBatchPoints(influxClient.BatchPointsConfig{
+			Database: dash.DB,
+		})
+		if err != nil {
+			log.Fatal("Error creating new batchpoints", err)
+		}
+
+		dash.bp = bp
 
 		lastWriteTime = time.Now()
 		lastWriteTime.Add(DB_WAIT_TIME * time.Second)
 
-		if recordProgress {
-			// Record progress in file, overwriting previous record.
-			progress := fmt.Sprintf("Start=%v\nLast=%v\nEnd=%v", start, i, end)
-			_, err = file.WriteAt([]byte(progress), 0)
-			if err != nil {
-				log.Fatal(err)
-			}
+		// Record progress in file, overwriting previous record.
+		progress = fmt.Sprintf("Start=%v\nLast=%v\nEnd=%v", start, i, end)
+		_, err = file.WriteAt([]byte(progress), 0)
+		if err != nil {
+			log.Fatal("Error writing progress: ", err, progress)
 		}
 	}
 
-	if recordProgress {
-		// Worker finished successfully so its progress record is unneeded.
-		err = os.Remove(workFile)
-		if err != nil {
-			log.Printf("Error removing %v: %v\n", workFile, err)
-		}
+	// Worker finished successfully so its progress record is unneeded.
+	err = os.Remove(workFile)
+	if err != nil {
+		log.Printf("Error removing %v: %v\n", workFile, err)
 	}
 
 	log.Printf("Worker %v done analyzing %v blocks (height=%v) after %v\n", workerID, end-start, end, time.Since(startTime))
@@ -330,13 +323,15 @@ func recoverFromFailure() {
 			log.Fatal(err)
 		}
 		contents := string(contentsBytes)
+
+		log.Println(file.Name())
 		progress := parseProgress(contents)
 
 		if len(progress) == 3 {
 			log.Printf("Starting recovery worker %v on range [%v, %v) at height %v\n", i, progress[0], progress[2], progress[1])
 			wg.Add(1)
 			go func(i int) {
-				analyzeBlockRange(i, progress[1], progress[2], workerProgressDir, false)
+				analyzeBlockRange(i, progress[1], progress[2], workerProgressDir)
 				wg.Done()
 			}(i)
 		} else if len(progress) == 1 {
@@ -374,16 +369,15 @@ func parseProgress(contents string) []int {
 	for _, line := range lines {
 		split := strings.Split(line, "=")
 
+		if len(split) < 2 {
+			continue
+		}
 		height, err := strconv.Atoi(split[1])
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		result = append(result, height)
-	}
-
-	if len(result) == 3 && !((result[0] <= result[1]) && (result[1] < result[2]-1)) {
-		log.Fatal("Expected contents of unfinished progress file: ", result)
 	}
 
 	return result
@@ -411,6 +405,8 @@ func doLiveAnalysis() {
 		}
 	}
 
+	formattedTime := time.Now().Format("01-02:15:04")
+
 	log.Println("Starting a live analysis of the blockchain.")
 
 	var lastAnalysisStarted int64
@@ -425,11 +421,12 @@ func doLiveAnalysis() {
 		if (blockCount - 6) > lastAnalysisStarted {
 			log.Printf("Analyzing block %v\n", blockCount-6)
 			go func() {
-				analyzeBlockLive(blockCount-6, workerProgressDir)
-
+				// Get name for this worker's progress file.
+				workFile := fmt.Sprintf("%v/worker-%v_%v", workerProgressDir, blockCount-6, formattedTime)
+				analyzeBlockLive(blockCount-6, workFile)
 			}()
-			lastAnalysisStarted = blockCount - 6
 
+			lastAnalysisStarted = blockCount - 6
 			time.Sleep(5 * time.Minute)
 		}
 	}
@@ -437,17 +434,14 @@ func doLiveAnalysis() {
 
 // analyzeBlock uses the getblockstats RPC to compute metrics of a single block.
 // It then stores the results in a batchpoint in the Dashboard's influx client.
-func analyzeBlockLive(blockHeight int64, dir string) {
+func analyzeBlockLive(blockHeight int64, workFile string) {
 	dash := setupDashboard()
 	defer dash.shutdown()
 
 	tags := make(map[string]string)        // for influxdb
 	fields := make(map[string]interface{}) // for influxdb
 
-	// Get name for this worker's progress file.
-	t := time.Now()
-	formattedTime := t.Format("01-02:15:04")
-	workFile := fmt.Sprintf("%v/worker-%v_%v", dir, blockHeight, formattedTime)
+	start := time.Now()
 
 	// Create file to record progress in.
 	file, err := os.Create(workFile)
@@ -508,4 +502,6 @@ func analyzeBlockLive(blockHeight int64, dir string) {
 	if err != nil {
 		log.Printf("Error removing %v: %v\n", workFile, err)
 	}
+
+	log.Printf("Done with block %v after %v\n", blockHeight, time.Since(start))
 }
