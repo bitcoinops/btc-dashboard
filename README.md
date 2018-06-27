@@ -5,9 +5,9 @@ Uses bitcoind fork https://github.com/marcinja/bitcoin/tree/expand-getblockstats
 Uses btcd fork https://github.com/marcinja/btcd/tree/dashboard-rpc for rpcclient with handler for (extended) getblockstats.
 
 ## Setup
-Set environment variables for influxdb: DB, DB_USERNAME, DB_PASSWORD. Then setup environment variables for bitcoind RPC access: BITCOIND_HOST, BITCOIND_USERNAME, BITCOIND_PASSWORD.
+Set environment variables for influxdb: DB, DB\_USERNAME, DB\_PASSWORD. Then setup environment variables for bitcoind RPC access: BITCOIND\_HOST, BITCOIND\_USERNAME, BITCOIND\_PASSWORD. To do this you can edit example\_env\_file.txt and run the command `export (cat env_file.txt |xargs -L 1)`
 
-Start `influxd` and create a database with name DB.
+Start `influxd` and create a database with name $DB.
 
 Then run `go build`
 
