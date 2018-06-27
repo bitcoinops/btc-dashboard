@@ -331,7 +331,7 @@ func recoverFromFailure() {
 			log.Printf("Starting recovery worker %v on range [%v, %v) at height %v\n", i, progress[0], progress[2], progress[1])
 			wg.Add(1)
 			go func(i int) {
-				analyzeBlockRange(i, progress[1], progress[2], workerProgressDir)
+				analyzeBlockRange(i, progress[1], progress[2], workerProgressDir+"/"+file.Name())
 				wg.Done()
 			}(i)
 		} else if len(progress) == 1 {
@@ -340,7 +340,7 @@ func recoverFromFailure() {
 			log.Printf("Starting recovery worker %v on block %v\n", i, progress[0])
 			wg.Add(1)
 			go func(i int) {
-				analyzeBlockLive(int64(progress[0]), workerProgressDir)
+				analyzeBlockLive(int64(progress[0]), workerProgressDir+"/"+file.Name())
 				wg.Done()
 			}(i)
 		} else {
@@ -415,8 +415,6 @@ func doLiveAnalysis() {
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		log.Println(blockCount, lastAnalysisStarted)
 
 		if (blockCount - 6) > lastAnalysisStarted {
 			log.Printf("Analyzing block %v\n", blockCount-6)
