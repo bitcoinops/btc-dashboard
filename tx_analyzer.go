@@ -137,7 +137,7 @@ func checkGetBlockStatsRPC(height int) {
 }
 
 // TODO: Try different numbers of workers
-const N_WORKERS = 18
+const N_WORKERS = 10
 
 // Splits up work across N_WORKERS workers,each with their own RPC/db clients.
 func analyze(start, end int) {
@@ -348,14 +348,6 @@ func recoverFromFailure() {
 		}
 	}
 	wg.Wait()
-
-	for _, file := range files {
-		// Recovery finished successfully so its progress record is unneeded.
-		err = os.Remove(workerProgressDir + "/" + file.Name())
-		if err != nil {
-			log.Printf("Error removing %v: %v\n", file.Name(), err)
-		}
-	}
 
 	log.Println("Finished with Recovery.")
 }
