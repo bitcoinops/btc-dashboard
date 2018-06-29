@@ -337,19 +337,19 @@ func recoverFromFailure() {
 		if len(progress) == 3 {
 			log.Printf("Starting recovery worker %v on range [%v, %v) at height %v\n", i, progress[0], progress[2], progress[1])
 			wg.Add(1)
-			go func(i int) {
+			go func(i int, file os.FileInfo) {
 				analyzeBlockRange(i, progress[1], progress[2], workerProgressDir+"/"+file.Name())
 				wg.Done()
-			}(i)
+			}(i, file)
 		} else if len(progress) == 1 {
 			// Finish work done during a live analysis.
 
 			log.Printf("Starting recovery worker %v on block %v\n", i, progress[0])
 			wg.Add(1)
-			go func(i int) {
+			go func(i int, file os.FileInfo) {
 				analyzeBlockLive(int64(progress[0]), workerProgressDir+"/"+file.Name())
 				wg.Done()
-			}(i)
+			}(i, file)
 		} else {
 			log.Fatal("Bad progress given: ", progress)
 		}
