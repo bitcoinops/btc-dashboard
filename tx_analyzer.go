@@ -218,7 +218,8 @@ func analyzeBlockRange(workerID, start, end int, workFile string) {
 			continue
 		}
 
-		for {
+		writeSuccessful := false
+		for attempts := 0; attempts <= MAX_ATTEMPTS; attempts++ {
 			err := dash.iClient.Write(dash.bp)
 			if err != nil {
 				log.Println("DB WRITE ERR: ", err)
@@ -227,7 +228,13 @@ func analyzeBlockRange(workerID, start, end int, workFile string) {
 				continue
 			}
 
+			writeSuccessful = true
 			break
+		}
+
+		if !writeSuccessful {
+			log.Printf("DB write failed!")
+			return
 		}
 
 		log.Printf("\n\n STORED INTO INFLUXDB \n\n")
@@ -474,7 +481,8 @@ func analyzeBlockLive(blockHeight int64, workFile string) {
 	dash.bp.AddPoint(pt)
 
 	// Try writing the point to influxdb.
-	for {
+	writeSuccessful := false
+	for attempts := 0; attempts <= MAX_ATTEMPTS; attempts++ {
 		err := dash.iClient.Write(dash.bp)
 		if err != nil {
 			log.Println("DB WRITE ERR: ", err)
@@ -484,7 +492,14 @@ func analyzeBlockLive(blockHeight int64, workFile string) {
 		}
 
 		log.Printf("\n\n STORED INTO INFLUXDB \n\n")
+
+		writeSuccessful = true
 		break
+	}
+
+	if !writeSuccessful {
+		log.Printf("DB write failed!")
+		return
 	}
 
 	// Worker finished successfully so its progress record is unneeded.

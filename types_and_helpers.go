@@ -12,6 +12,8 @@ const BLOCK_NUM_DIFF = 6
 // Batch ranges =  [(1), (2), (3-4), (5-9), (10-49), (50-99), (100+)]
 const BATCH_RANGE_LENGTH = 7
 
+const MAX_ATTEMPTS = 3 // max number of DB write attempts before giving up
+
 type BlockStats struct {
 	*btcjson.GetBlockStatsResult
 }
