@@ -97,17 +97,7 @@ func main() {
 
 	// If both a start and end are given, analyze that range.
 	if (*startPtr > 0) && (*endPtr > 0) {
-		start, err := strconv.Atoi(os.Args[1])
-		if err != nil {
-			log.Fatal("Error parsing first argument, should be an int: ", err)
-		}
-
-		end, err := strconv.Atoi(os.Args[2])
-		if err != nil {
-			log.Fatal("Error parsing second argument, should be an int: ", err)
-		}
-
-		analyze(start, end)
+		analyze(*startPtr, *endPtr)
 		return
 	}
 
@@ -276,6 +266,7 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 // recoverFromFailure checks the worker-progress directory for any unfinished work from a previous job.
 // If there is any, it starts a new worker to continue the work for each previously failed worker.
 func recoverFromFailure() {
+	log.Println("Starting Recovery Process.")
 	currentDir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
@@ -292,38 +283,57 @@ func recoverFromFailure() {
 		log.Fatal(err)
 	}
 
-	log.Println("Starting Recovery Process.")
-
 	var wg sync.WaitGroup
-	for i, file := range files {
+	wg.Add(len(files))
+	nWorkersBusy := 0
+	doneCh := make(chan struct{}, N_WORKERS)
+
+	i := 0 // index into files, incremented at bottom of loop.
+	for i < len(files) {
+		// Check if any workers are free.
+		select {
+		case <-doneCh:
+			nWorkersBusy--
+		default:
+		}
+
+		// If all workers are busy, wait and continue.
+		if nWorkersBusy >= N_WORKERS {
+			time.Sleep(250 * time.Millisecond)
+			continue
+		}
+
+		// Assign work to a free worker.
+		nWorkersBusy++
+
+		file := files[i]
 		contentsBytes, err := ioutil.ReadFile(workerProgressDir + "/" + file.Name())
 		if err != nil {
 			log.Fatal(err)
 		}
 		contents := string(contentsBytes)
 
-		log.Println(file.Name())
 		progress := parseProgress(contents)
-
 		if len(progress) == 3 {
 			log.Printf("Starting recovery worker %v on range [%v, %v) at height %v\n", i, progress[0], progress[2], progress[1])
-			wg.Add(1)
 			go func(i int, file os.FileInfo) {
 				analyzeBlockRange(i, progress[1], progress[2], workerProgressDir+"/"+file.Name())
+				doneCh <- struct{}{}
 				wg.Done()
 			}(i, file)
 		} else if len(progress) == 1 {
 			// Finish work done during a live analysis.
-
 			log.Printf("Starting recovery worker %v on block %v\n", i, progress[0])
-			wg.Add(1)
 			go func(i int, file os.FileInfo) {
 				analyzeBlockLive(int64(progress[0]), workerProgressDir+"/"+file.Name())
+				doneCh <- struct{}{}
 				wg.Done()
 			}(i, file)
 		} else {
 			log.Fatal("Bad progress given: ", progress)
 		}
+
+		i++
 	}
 	wg.Wait()
 
