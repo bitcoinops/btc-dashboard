@@ -1,4 +1,4 @@
-package main
+package dashboard
 
 import (
 	"flag"
@@ -14,7 +14,9 @@ import (
 	"time"
 )
 
-const N_WORKERS = 2
+var N_WORKERS int
+
+const N_WORKERS_DEFAULT = 2
 const DB_WAIT_TIME = 30
 
 // A Dashboard contains all the components necessary to make RPC calls to bitcoind, and
@@ -89,7 +91,10 @@ func main() {
 	recoveryFlagPtr := flag.Bool("recovery", false, "Set to true to start workers on files in ./worker-progress")
 	startPtr := flag.Int("start", 0, "Starting blockheight.")
 	endPtr := flag.Int("end", 0, "Last blockheight to analyze.")
+	nWorkersPtr := flag.Int("workers", N_WORKERS_DEFAULT, "Number of concurrent RPC workers.")
 	flag.Parse()
+
+	N_WORKERS = *nWorkersPtr
 
 	if *recoveryFlagPtr {
 		recoverFromFailure()
