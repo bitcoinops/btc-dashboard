@@ -1,18 +1,21 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/btcsuite/btcd/rpcclient"
 	influxClient "github.com/influxdata/influxdb/client/v2"
 	"io/ioutil"
 	"log"
 	"os"
-	"runtime/pprof"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
+
+const N_WORKERS = 2
+const DB_WAIT_TIME = 30
 
 // A Dashboard contains all the components necessary to make RPC calls to bitcoind, and
 // to place data into influxdb.
@@ -83,24 +86,17 @@ func (dash *Dashboard) shutdown() {
 }
 
 func main() {
-	if PROFILE {
-		f, _ := os.Create("cpu.out")
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
+	recoveryFlagPtr := flag.Bool("recovery", false, "Set to true to start workers on files in ./worker-progress")
+	startPtr := flag.Int("start", 0, "Starting blockheight.")
+	endPtr := flag.Int("end", 0, "Last blockheight to analyze.")
+	flag.Parse()
+
+	if *recoveryFlagPtr {
+		recoverFromFailure()
 	}
 
-	// Given one argument, test getblockstats.
-	if len(os.Args) == 2 {
-		blockHeight, err := strconv.Atoi(os.Args[1])
-		if err != nil {
-			log.Fatal("Error parsing argument, should be an int: ", err)
-		}
-
-		checkGetBlockStatsRPC(blockHeight)
-		return
-	}
-
-	if len(os.Args) == 3 {
+	// If both a start and end are given, analyze that range.
+	if (*startPtr > 0) && (*endPtr > 0) {
 		start, err := strconv.Atoi(os.Args[1])
 		if err != nil {
 			log.Fatal("Error parsing first argument, should be an int: ", err)
@@ -115,29 +111,9 @@ func main() {
 		return
 	}
 
-	// Given no arguments, perform the recovery process and start live analysis.
-	recoverFromFailure()
-	doLiveAnalysis()
+	// Given no arguments, start live analysis.
+	doLiveAnalysis(*startPtr)
 }
-
-// Prints result from getblockstats RPC at the given height. Used to check local changes to getblockstats.
-func checkGetBlockStatsRPC(height int) {
-	dash := setupDashboard()
-	defer dash.shutdown()
-
-	// Use getblockstats RPC and merge results into the metrics struct.
-	start := time.Now()
-	blockStats, err := dash.client.GetBlockStats(int64(height), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("Blockstats: %+v\n", blockStats)
-	log.Println("Time: ", time.Since(start))
-}
-
-// TODO: Try different numbers of workers
-const N_WORKERS = 10
 
 // Splits up work across N_WORKERS workers,each with their own RPC/db clients.
 func analyze(start, end int) {
@@ -175,8 +151,6 @@ func analyze(start, end int) {
 	wg.Wait()
 }
 
-const DB_WAIT_TIME = 30
-
 // Analyzes all blocks from in the interval [start, end)
 func analyzeBlockRange(workerID, start, end int, workFile string) {
 	dash := setupDashboard()
@@ -208,9 +182,8 @@ func analyzeBlockRange(workerID, start, end int, workFile string) {
 
 	for i := start; i < end; i++ {
 		startBlock := time.Now()
-
 		dash.analyzeBlock(int64(i))
-		log.Printf("Worker %v: Done with %v blocks (height=%v) after %v \n", workerID, i-start+1, i, time.Since(startBlock))
+		log.Printf("Worker %v: Done with %v blocks total (height=%v) after %v (%v) \n", workerID, i-start+1, i, time.Since(startTime), time.Since(startBlock))
 
 		// Only perform the write to influxDB if there hasn't been a write in the last 5 seconds.
 		// And make sure to do the write before finishing.
@@ -248,9 +221,7 @@ func analyzeBlockRange(workerID, start, end int, workFile string) {
 		}
 
 		dash.bp = bp
-
-		lastWriteTime = time.Now()
-		lastWriteTime.Add(DB_WAIT_TIME * time.Second)
+		lastWriteTime = time.Now().Add(DB_WAIT_TIME * time.Second)
 
 		// Record progress in file, overwriting previous record.
 		progress = fmt.Sprintf("Start=%v\nLast=%v\nEnd=%v", start, i, end)
@@ -385,7 +356,10 @@ func parseProgress(contents string) []int {
 // doLiveAnalysis does an analysis of blocks as they come in live.
 // In order to avoid dealing with re-org in this code-base, it should
 // stay at least 6 blocks behind.
-func doLiveAnalysis() {
+func doLiveAnalysis(height int) {
+	log.Println("Starting a live analysis of the blockchain.")
+	formattedTime := time.Now().Format("01-02:15:04")
+
 	dash := setupDashboard()
 	defer dash.shutdown()
 
@@ -404,28 +378,33 @@ func doLiveAnalysis() {
 		}
 	}
 
-	formattedTime := time.Now().Format("01-02:15:04")
+	blockCount, err := dash.client.GetBlockCount()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	log.Println("Starting a live analysis of the blockchain.")
+	workFile := fmt.Sprintf("%v/live-worker_%v", workerProgressDir, formattedTime)
 
 	var lastAnalysisStarted int64
+	if height == 0 {
+		lastAnalysisStarted = blockCount - 6
+	} else {
+		lastAnalysisStarted = int64(height)
+	}
+	heightInRangeOfTip := (blockCount - lastAnalysisStarted) <= 6
 	for {
-		blockCount, err := dash.client.GetBlockCount()
-		if err != nil {
-			log.Fatal(err)
+		if heightInRangeOfTip {
+			time.Sleep(500 * time.Millisecond)
+			blockCount, err = dash.client.GetBlockCount()
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			analyzeBlockLive(lastAnalysisStarted, workFile)
+			lastAnalysisStarted += 1
 		}
 
-		if (blockCount - 6) > lastAnalysisStarted {
-			log.Printf("Analyzing block %v\n", blockCount-6)
-			go func() {
-				// Get name for this worker's progress file.
-				workFile := fmt.Sprintf("%v/worker-%v_%v", workerProgressDir, blockCount-6, formattedTime)
-				analyzeBlockLive(blockCount-6, workFile)
-			}()
-
-			lastAnalysisStarted = blockCount - 6
-			time.Sleep(5 * time.Minute)
-		}
+		heightInRangeOfTip = (blockCount - lastAnalysisStarted) <= 6
 	}
 }
 
