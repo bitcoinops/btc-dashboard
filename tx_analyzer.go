@@ -1,4 +1,4 @@
-package dashboard
+package main
 
 import (
 	"flag"
@@ -31,6 +31,11 @@ type Dashboard struct {
 // Assumes enviroment variables: DB, DB_USERNAME, DB_PASSWORD, BITCOIND_HOST, BITCOIND_USERNAME, BITCOIND_PASSWORD, are all set.
 // influxd and bitcoind should already be started.
 func setupDashboard() Dashboard {
+	DB_ADDR, ok := os.LookupEnv("DB_ADDR")
+	if !ok {
+		DB_ADDR = "http://localhost:8086"
+	}
+
 	DB := os.Getenv("DB")
 	DB_USERNAME := os.Getenv("DB_USERNAME")
 	DB_PASSWORD := os.Getenv("DB_PASSWORD")
@@ -56,7 +61,7 @@ func setupDashboard() Dashboard {
 
 	// Setup influxdb client.
 	ic, err := influxClient.NewHTTPClient(influxClient.HTTPConfig{
-		Addr:     "http://localhost:8086",
+		Addr:     DB_ADDR,
 		Username: DB_USERNAME,
 		Password: DB_PASSWORD,
 	})
