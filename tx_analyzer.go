@@ -40,7 +40,10 @@ func setupDashboard() Dashboard {
 	DB_USERNAME := os.Getenv("DB_USERNAME")
 	DB_PASSWORD := os.Getenv("DB_PASSWORD")
 
-	BITCOIND_HOST := os.Getenv("BITCOIND_HOST")
+	BITCOIND_HOST, ok := os.LookupEnv("BITCOIND_HOST")
+	if !ok {
+		BITCOIND_HOST = "localhost:8332"
+	}
 	BITCOIND_USERNAME := os.Getenv("BITCOIND_USERNAME")
 	BITCOIND_PASSWORD := os.Getenv("BITCOIND_PASSWORD")
 
