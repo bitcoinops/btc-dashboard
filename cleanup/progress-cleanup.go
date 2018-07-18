@@ -32,12 +32,11 @@ func cleanUpFromFile(fileName string) {
 	contents := string(contentsBytes)
 	lines := strings.Split(contents, "\n")
 
+	lines = lines[2:]
 	heights := make([]int, len(lines)-1)
-
 	for i, line := range lines {
 		words := strings.Fields(line)
 		if len(words) != 2 {
-			log.Println("Weird length", words)
 			continue
 		}
 
