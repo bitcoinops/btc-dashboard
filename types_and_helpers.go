@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/btcsuite/btcd/btcjson"
+	"log"
 	"strconv"
 )
 
@@ -23,6 +24,15 @@ func (metrics BlockStats) setInfluxTags(tags map[string]string, height int64) {
 }
 
 func (metrics BlockStats) setInfluxFields(fields map[string]interface{}) {
+	// Sanity check for SegWit spends
+	swSpendsFromBlockStats := metrics.TxsSpendingNestedP2WPKHOutputs + metrics.TxsSpendingNestedP2WSHOutputs + metrics.TxsSpendingNativeP2WPKHOutputs + metrics.TxsSpendingNativeP2WSHOutputs
+
+	if !(metrics.SegWitTxs <= swSpendsFromBlockStats) {
+		panic("Bad segwit spend counts!")
+	} else {
+		log.Println(metrics.SegWitTxs, swSpendsFromBlockStats)
+	}
+
 	fields["avg_fee"] = metrics.AverageFee
 	fields["avg_fee_rate"] = metrics.AverageFeeRate
 	fields["avg_tx_size"] = metrics.AverageTxSize
@@ -93,7 +103,6 @@ func (metrics BlockStats) setInfluxFields(fields map[string]interface{}) {
 	}
 
 	// Derived fields added below /////////////////////////////////////////////////////
-
 	fields["num_txs_creating_native_segwit_outputs"] = metrics.TxsCreatingP2WPKHOutputs + metrics.TxsCreatingP2WSHOutputs
 	// Avoid divide by 0 errors.
 	if metrics.Txs != 0 {
@@ -117,6 +126,14 @@ func (metrics BlockStats) setInfluxFields(fields map[string]interface{}) {
 		fields["percent_txs_spending_P2WSH_outputs"] = float64(metrics.TxsSpendingNativeP2WSHOutputs+metrics.TxsSpendingNestedP2WSHOutputs) / float64(metrics.Txs)
 		fields["percent_txs_spending_P2WPKH_outputs"] = float64(metrics.TxsSpendingNativeP2WPKHOutputs+metrics.TxsSpendingNestedP2WPKHOutputs) / float64(metrics.Txs)
 		fields["percent_txs_that_are_segwit_txs"] = float64(metrics.SegWitTxs) / float64(metrics.Txs)
+
+		percSpends := fields["percent_txs_spending_P2WSH_outputs"].(float64) + fields["percent_txs_spending_P2WPKH_outputs"].(float64)
+		if !(fields["percent_txs_that_are_segwit_txs"].(float64) <= percSpends) {
+			panic("Bad segwit spend counts!")
+		} else {
+			log.Println(fields["percent_txs_that_are_segwit_txs"], percSpends)
+		}
+
 	}
 
 	// Avoid divide by 0 errors.
