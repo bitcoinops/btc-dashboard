@@ -80,6 +80,9 @@ func (metrics BlockStats) setInfluxFields(fields map[string]interface{}) {
 	fields["txs_spending_native_p2wpkh_outputs"] = metrics.TxsSpendingNativeP2WPKHOutputs
 	fields["txs_spending_native_p2wsh_outputs"] = metrics.TxsSpendingNativeP2WSHOutputs
 
+	fields["txs_spending_native_sw_outputs"] = metrics.TxsSpendingNativeP2WPKHOutputs + metrics.TxsSpendingNativeP2WSHOutputs
+	fields["txs_spending_nested_sw_outputs"] = metrics.TxsSpendingNestedP2WPKHOutputs + metrics.TxsSpendingNestedP2WSHOutputs
+
 	fields["new_P2WPKH_outputs"] = metrics.NewP2WPKHOutputs
 	fields["new_P2WSH_outputs"] = metrics.NewP2WSHOutputs
 	fields["num_txs_creating_P2WPKH"] = metrics.TxsCreatingP2WPKHOutputs
@@ -118,7 +121,9 @@ func (metrics BlockStats) setInfluxFields(fields map[string]interface{}) {
 		fields["percent_txs_creating_native_segwit_outputs"] = float64(metrics.TxsCreatingP2WPKHOutputs+metrics.TxsCreatingP2WSHOutputs) / float64(metrics.Txs)
 		fields["percent_txs_creating_P2WSH_outputs"] = float64(metrics.TxsCreatingP2WSHOutputs) / float64(metrics.Txs)
 		fields["percent_txs_creating_P2WPKH_outputs"] = float64(metrics.TxsCreatingP2WPKHOutputs) / float64(metrics.Txs)
+
 		fields["percent_txs_spending_native_segwit_outputs"] = float64(metrics.TxsSpendingNativeP2WPKHOutputs+metrics.TxsSpendingNativeP2WSHOutputs) / float64(metrics.Txs)
+		fields["percent_txs_spending_nested_segwit_outputs"] = float64(metrics.TxsSpendingNestedP2WPKHOutputs+metrics.TxsSpendingNestedP2WSHOutputs) / float64(metrics.Txs)
 		fields["percent_txs_spending_native_P2WPKH_outputs"] = float64(metrics.TxsSpendingNativeP2WPKHOutputs) / float64(metrics.Txs)
 		fields["percent_txs_spending_native_P2WSH_outputs"] = float64(metrics.TxsSpendingNativeP2WSHOutputs) / float64(metrics.Txs)
 		fields["percent_txs_spending_nested_P2WPKH_outputs"] = float64(metrics.TxsSpendingNestedP2WPKHOutputs) / float64(metrics.Txs)
