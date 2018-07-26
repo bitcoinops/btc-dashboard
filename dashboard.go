@@ -2,19 +2,33 @@ package main
 
 import (
 	"github.com/btcsuite/btcd/rpcclient"
+
 	influxClient "github.com/influxdata/influxdb/client/v2"
+
+	"github.com/go-pg/pg"
+	"github.com/go-pg/pg/orm"
+
 	"log"
 	"os"
 	"time"
 )
 
+// TODO: refactor all *general* methods on dashboard to collect errors from their specific implementations
+
 // A Dashboard contains all the components necessary to make RPC calls to bitcoind, and
 // to place data into influxdb.
 type Dashboard struct {
-	client  *rpcclient.Client
+	client *rpcclient.Client
+
+	// Fields specifically for influxdb
 	iClient influxClient.Client
 	bp      influxClient.BatchPoints
-	DB      string
+
+	// Fields specifically for postgresql
+	pgClient *pg.DB
+	pgBatch  []DashboardData
+
+	DB string
 }
 
 // Assumes enviroment variables: DB, DB_USERNAME, DB_PASSWORD, BITCOIND_HOST, BITCOIND_USERNAME, BITCOIND_PASSWORD, are all set.
@@ -44,7 +58,12 @@ func setupDashboard() Dashboard {
 
 	DB_ADDR, ok := os.LookupEnv("DB_ADDR")
 	if !ok {
-		DB_ADDR = "http://localhost:8086"
+		switch DB_USED {
+		case "influxdb":
+			DB_ADDR = "http://localhost:8086"
+		case "postgresql":
+			DB_ADDR = "http://localhost:5432"
+		}
 	}
 
 	DB := os.Getenv("DB")
@@ -73,14 +92,37 @@ func setupDashboard() Dashboard {
 		}
 
 		dash = Dashboard{
-			client,
-			ic,
-			bp,
-			DB,
+			client:  client,
+			iClient: ic,
+			bp:      bp,
+			DB:      DB,
 		}
 
 	case "postgresql":
-		log.Fatal("unimplemented DB! ", DB_USED)
+		// TODO: set up with SSL
+		db := pg.Connect(&pg.Options{
+			Addr:     DB_ADDR,
+			User:     DB_USERNAME,
+			Password: DB_PASSWORD,
+			Database: DB, // TODO: set this up properly
+		})
+
+		model := interface{}((*DashboardData)(nil))
+		err := db.CreateTable(model, &orm.CreateTableOptions{
+			Temp:        false,
+			IfNotExists: true,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		dash = Dashboard{
+			client:   client,
+			pgClient: db,
+			pgBatch:  make([]DashboardData, 0),
+			DB:       DB,
+		}
+
 	default:
 		log.Fatal("unimplemented DB! ", DB_USED)
 	}
@@ -90,7 +132,14 @@ func setupDashboard() Dashboard {
 
 func (dash *Dashboard) shutdown() {
 	dash.client.Shutdown()
-	dash.iClient.Close()
+
+	switch DB_USED {
+	case "influxdb":
+		dash.iClient.Close()
+
+	case "postgresql":
+		dash.pgClient.Close()
+	}
 }
 
 // inserts a data from a single getblockstats call into the dashboard's DB
@@ -100,7 +149,7 @@ func (dash *Dashboard) insert(stats BlockStats) bool {
 		return dash.insert_influxdb(stats)
 
 	case "postgresql":
-		log.Fatal("unimplemented DB! ", DB_USED)
+		return dash.insert_postgresql(stats)
 	default:
 		log.Fatal("unimplemented DB! ", DB_USED)
 	}
@@ -151,7 +200,15 @@ func (dash *Dashboard) insert_influxdb(stats BlockStats) bool {
 }
 
 func (dash *Dashboard) insert_postgresql(stats BlockStats) bool {
-	return false
+	data := stats.transformToDashboardData()
+
+	err := dash.pgClient.Insert(&data)
+	if err != nil {
+		// TODO figure out if there's a more reasonable response
+		log.Fatal("PG database insert failed! ", err)
+	}
+
+	return true
 }
 
 // setup the insertion of many BlockStats (stored internally)
@@ -162,7 +219,8 @@ func (dash *Dashboard) batchInsert(stats BlockStats) {
 		dash.batchInsert_influxdb(stats)
 
 	case "postgresql":
-		log.Fatal("unimplemented DB! ", DB_USED)
+		data := stats.transformToDashboardData()
+		dash.pgBatch = append(dash.pgBatch, data)
 	default:
 		log.Fatal("unimplemented DB! ", DB_USED)
 	}
@@ -191,10 +249,6 @@ func (dash *Dashboard) batchInsert_influxdb(stats BlockStats) {
 	dash.bp.AddPoint(pt)
 }
 
-func (dash *Dashboard) batchInsert_postgresql(stats BlockStats) {
-
-}
-
 // actually do the write of batch created
 func (dash *Dashboard) commitBatchInsert() bool {
 	switch DB_USED {
@@ -202,7 +256,7 @@ func (dash *Dashboard) commitBatchInsert() bool {
 		return dash.commitBatchInsert_influxdb()
 
 	case "postgresql":
-		log.Fatal("unimplemented DB! ", DB_USED)
+		return dash.commitBatchInsert_postgresql()
 	default:
 		log.Fatal("unimplemented DB! ", DB_USED)
 	}
@@ -240,6 +294,18 @@ func (dash *Dashboard) commitBatchInsert_influxdb() bool {
 	}
 
 	dash.bp = bp
+
+	return true
+}
+
+func (dash *Dashboard) commitBatchInsert_postgresql() bool {
+	err := dash.pgClient.Insert(&dash.pgBatch)
+	if err != nil {
+		log.Fatal("PG Commit Batch insert failed! ", err)
+	}
+
+	// Reset batch.
+	dash.pgBatch = make([]DashboardData, 0)
 
 	return true
 }
