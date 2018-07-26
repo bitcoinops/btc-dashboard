@@ -32,7 +32,7 @@ func cleanUpFromFile(fileName string) {
 	contents := string(contentsBytes)
 	lines := strings.Split(contents, "\n")
 
-	lines = lines[2:]
+	lines = lines[3:]
 	heights := make([]int, len(lines)-1)
 	for i, line := range lines {
 		words := strings.Fields(line)
