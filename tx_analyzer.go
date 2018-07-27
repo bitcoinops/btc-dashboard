@@ -184,7 +184,7 @@ func recoverFromFailure() {
 
 	var wg sync.WaitGroup
 	wg.Add(len(files))
-	nWorkersBusy := 0
+	nBusyWorkers := 0
 	doneCh := make(chan struct{}, N_WORKERS)
 
 	i := 0 // index into files, incremented at bottom of loop.
@@ -192,18 +192,18 @@ func recoverFromFailure() {
 		// Check if any workers are free.
 		select {
 		case <-doneCh:
-			nWorkersBusy--
+			nBusyWorkers--
 		default:
 		}
 
 		// If all workers are busy, wait and continue.
-		if nWorkersBusy >= N_WORKERS {
+		if nBusyWorkers >= N_WORKERS {
 			time.Sleep(250 * time.Millisecond)
 			continue
 		}
 
 		// Assign work to a free worker.
-		nWorkersBusy++
+		nBusyWorkers++
 
 		file := files[i]
 		contentsBytes, err := ioutil.ReadFile(workerProgressDir + "/" + file.Name())
@@ -244,7 +244,6 @@ func recoverFromFailure() {
 // stay at least 6 blocks behind.
 func doLiveAnalysis(height int) {
 	log.Println("Starting a live analysis of the blockchain.")
-	formattedTime := time.Now().Format("01-02:15:04")
 
 	dash := setupDashboard()
 	defer dash.shutdown()
@@ -263,25 +262,39 @@ func doLiveAnalysis(height int) {
 		log.Fatal(err)
 	}
 
-	workFile := fmt.Sprintf("%v/live-worker_%v", workerProgressDir, formattedTime)
-
 	var lastAnalysisStarted int64
 	if height == 0 {
 		lastAnalysisStarted = blockCount - 6
 	} else {
 		lastAnalysisStarted = int64(height)
 	}
+	workFile := fmt.Sprintf("%v/live-worker_%v", workerProgressDir, lastAnalysisStarted)
+
+	doneCh := make(chan struct{}, N_WORKERS)
 	heightInRangeOfTip := (blockCount - lastAnalysisStarted) <= 6
+	nBusyWorkers := 0
 	for {
-		if heightInRangeOfTip {
+		// Check if any workers are free.
+		select {
+		case <-doneCh:
+			nBusyWorkers--
+		default:
+		}
+
+		if heightInRangeOfTip || (nBusyWorkers >= N_WORKERS) {
 			time.Sleep(500 * time.Millisecond)
 			blockCount, err = dash.client.GetBlockCount()
 			if err != nil {
 				log.Fatal(err)
 			}
 		} else {
-			analyzeBlockLive(lastAnalysisStarted, workFile)
+			go func(blockHeight int64, workFile string) {
+				analyzeBlockLive(blockHeight, workFile)
+				doneCh <- struct{}{}
+			}(lastAnalysisStarted, workFile)
+
 			lastAnalysisStarted += 1
+			workFile = fmt.Sprintf("%v/live-worker_%v", workerProgressDir, lastAnalysisStarted)
 		}
 
 		heightInRangeOfTip = (blockCount - lastAnalysisStarted) <= 6
