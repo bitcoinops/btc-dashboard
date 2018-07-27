@@ -6,8 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -44,7 +42,7 @@ func main() {
 	}
 
 	if *migratePtr {
-		migrate()
+		//	migrate()
 		return
 	}
 
@@ -75,13 +73,7 @@ func analyze(start, end int) {
 
 	// Create the progress directory if it doesn't already exist.
 	workerProgressDir := currentDir + "/worker-progress"
-	if _, err := os.Stat(workerProgressDir); os.IsNotExist(err) {
-		log.Printf("Creating worker progress directory at: %v\n", workerProgressDir)
-		err := os.Mkdir(workerProgressDir, 0777)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
+	createDirIfNotExist(workerProgressDir)
 
 	formattedTime := time.Now().Format("01-02:15:04")
 
@@ -121,11 +113,7 @@ func analyzeBlockRange(workerID, start, end int, workFile string) {
 	}
 
 	// Record progress in file.
-	progress := fmt.Sprintf("Start=%v\nLast=%v\nEnd=%v", start, start, end)
-	_, err = file.WriteAt([]byte(progress), 0)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logProgressToFile(start, start, end, file)
 
 	for i := start; i < end; i++ {
 		startBlock := time.Now()
@@ -148,11 +136,7 @@ func analyzeBlockRange(workerID, start, end int, workFile string) {
 		lastWriteTime = time.Now().Add(DB_WAIT_TIME * time.Second)
 
 		// Record progress in file, overwriting previous record.
-		progress = fmt.Sprintf("Start=%v\nLast=%v\nEnd=%v", start, i, end)
-		_, err = file.WriteAt([]byte(progress), 0)
-		if err != nil {
-			log.Fatal("Error writing progress: ", err, progress)
-		}
+		logProgressToFile(start, i, end, file)
 	}
 
 	// Worker finished successfully so its progress record is unneeded.
@@ -255,29 +239,6 @@ func recoverFromFailure() {
 	log.Println("Finished with Recovery.")
 }
 
-// parseProgress takes in the contents of a worker-progress file
-// and returns the starting height, the last height completed, and the end height.
-func parseProgress(contents string) []int {
-	lines := strings.Split(contents, "\n")
-	result := make([]int, 0)
-
-	for _, line := range lines {
-		split := strings.Split(line, "=")
-
-		if len(split) < 2 {
-			continue
-		}
-		height, err := strconv.Atoi(split[1])
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		result = append(result, height)
-	}
-
-	return result
-}
-
 // doLiveAnalysis does an analysis of blocks as they come in live.
 // In order to avoid dealing with re-org in this code-base, it should
 // stay at least 6 blocks behind.
@@ -295,13 +256,7 @@ func doLiveAnalysis(height int) {
 
 	// Create the progress directory if it doesn't already exist.
 	workerProgressDir := currentDir + "/worker-progress"
-	if _, err := os.Stat(workerProgressDir); os.IsNotExist(err) {
-		log.Printf("Creating worker progress directory at: %v\n", workerProgressDir)
-		err := os.Mkdir(workerProgressDir, 0777)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
+	createDirIfNotExist(workerProgressDir)
 
 	blockCount, err := dash.client.GetBlockCount()
 	if err != nil {
@@ -349,11 +304,7 @@ func analyzeBlockLive(blockHeight int64, workFile string) {
 	}
 
 	// Record progress in file.
-	progress := fmt.Sprintf("Height=%v", blockHeight)
-	_, err = file.WriteAt([]byte(progress), 0)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logProgressToFile(int(blockHeight), int(blockHeight), int(blockHeight), file)
 
 	// Use getblockstats RPC and merge results into the metrics struct.
 	blockStatsRes, err := dash.client.GetBlockStats(blockHeight, nil)
