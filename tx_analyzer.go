@@ -14,6 +14,7 @@ import (
 
 var N_WORKERS int
 var DB_USED string
+var BACKUP_JSON bool
 
 const N_WORKERS_DEFAULT = 2
 const DB_WAIT_TIME = 30
@@ -29,11 +30,13 @@ func main() {
 	recoveryFlagPtr := flag.Bool("recovery", false, "Set to true to start workers on files in ./worker-progress")
 
 	dbPtr := flag.String("db", "postgresql", "Set to 'influxdb' or 'postgresql' to choose DB used. Defaults to influxdb ")
+	jsonPtr := flag.Bool("json", true, "Set to false to stop json logging in /db-backup")
 	flag.Parse()
 
 	// Set global variables
 	N_WORKERS = *nWorkersPtr
 	DB_USED = *dbPtr // TODO: kinda gross to make this a global...
+	BACKUP_JSON = *jsonPtr
 
 	if *pgPtr {
 		toPostgres()

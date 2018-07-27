@@ -8,10 +8,16 @@ import (
 	"github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"
 
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"time"
 )
+
+const JSON_DIR_RELATIVE = "/db-backup"
+
+var JSON_DIR string
 
 // TODO: refactor all *general* methods on dashboard to collect errors from their specific implementations
 
@@ -127,6 +133,23 @@ func setupDashboard() Dashboard {
 		log.Fatal("unimplemented DB! ", DB_USED)
 	}
 
+	// Create directory for json files.
+	if BACKUP_JSON {
+		currentDir, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		JSON_DIR = currentDir + JSON_DIR_RELATIVE
+		if _, err := os.Stat(JSON_DIR); os.IsNotExist(err) {
+			log.Printf("Creating json backup directory at: %v\n", JSON_DIR)
+			err := os.Mkdir(JSON_DIR, 0777)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+
 	return dash
 }
 
@@ -209,6 +232,19 @@ func (dash *Dashboard) insert_postgresql(stats BlockStats) bool {
 	}
 
 	log.Printf("\n\n STORED INTO POSTGRESQL \n\n")
+
+	if BACKUP_JSON {
+		dataFileName := fmt.Sprintf("%v/%v.json", JSON_DIR, stats.Height)
+		dataFile, err := os.Create(dataFileName)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		enc := json.NewEncoder(dataFile)
+		enc.Encode(data)
+
+		dataFile.Close()
+	}
 	return true
 }
 
@@ -306,6 +342,21 @@ func (dash *Dashboard) commitBatchInsert_postgresql() bool {
 	}
 
 	log.Printf("\n\n STORED INTO POSTGRESQL \n\n")
+
+	if BACKUP_JSON {
+		for _, data := range dash.pgBatch {
+			dataFileName := fmt.Sprintf("%v/%v.json", JSON_DIR, data.Height)
+			dataFile, err := os.Create(dataFileName)
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			enc := json.NewEncoder(dataFile)
+			enc.Encode(data)
+
+			dataFile.Close()
+		}
+	}
 
 	// Reset batch.
 	dash.pgBatch = make([]DashboardData, 0)
