@@ -26,6 +26,172 @@ func (metrics BlockStats) setInfluxTags(tags map[string]string, height int64) {
 func (metrics BlockStats) transformToDashboardData() DashboardData {
 	data := DashboardData{}
 
+	data.Time = metrics.Time
+
+	data.Avg_fee = metrics.AverageFee
+	data.Avg_fee_rate = metrics.AverageFeeRate
+	data.Avg_tx_size = metrics.AverageTxSize
+
+	data.Max_fee = metrics.MaxFee
+	data.Max_fee_rate = metrics.MaxFeeRate
+	data.Max_tx_size = metrics.MaxTxSize
+
+	data.Min_fee = metrics.MinFee
+	data.Min_fee_rate = metrics.MinFeeRate
+	data.Min_tx_size = metrics.MinTxSize
+
+	data.Median_fee = metrics.MedianFee
+	data.Median_fee_rate = metrics.MedianFeeRate
+	data.Median_tx_size = metrics.MedianTxSize
+
+	data.Block_size = metrics.TotalSize
+	data.Volume_btc = metrics.TotalOut
+	data.Num_txs = metrics.Txs
+
+	data.Hash = metrics.Hash
+	data.Num_inputs = metrics.Ins
+	data.Num_outputs = metrics.Outs
+
+	data.Subsidy = metrics.Subsidy
+	data.Segwit_total_size = metrics.SegWitTotalSize
+	data.Segwit_total_weight = metrics.SegWitTotalWeight
+	data.Num_segwit_txs = metrics.SegWitTxs
+
+	data.Total_amount_out = metrics.TotalOut
+	data.Total_size = metrics.TotalSize
+	data.Total_weight = metrics.TotalWeight
+	data.Total_fee = metrics.TotalFee
+
+	data.Utxo_increase = metrics.UTXOIncrease
+	data.Utxo_size_increase = metrics.UTXOSizeIncrease
+
+	data.Nested_P2WPKH_outputs_spent = metrics.NestedP2WPKHOutputsSpent
+	data.Native_P2WPKH_outputs_spent = metrics.NativeP2WPKHOutputsSpent
+	data.Nested_P2WSH_outputs_spent = metrics.NestedP2WSHOutputsSpent
+	data.Native_P2WSH_outputs_spent = metrics.NativeP2WSHOutputsSpent
+
+	data.Txs_spending_nested_p2wpkh_outputs = metrics.TxsSpendingNestedP2WPKHOutputs
+	data.Txs_spending_nested_p2wsh_outputs = metrics.TxsSpendingNestedP2WSHOutputs
+	data.Txs_spending_native_p2wpkh_outputs = metrics.TxsSpendingNativeP2WPKHOutputs
+	data.Txs_spending_native_p2wsh_outputs = metrics.TxsSpendingNativeP2WSHOutputs
+
+	data.Txs_spending_native_sw_outputs = metrics.TxsSpendingNativeP2WPKHOutputs + metrics.TxsSpendingNativeP2WSHOutputs
+	data.Txs_spending_nested_sw_outputs = metrics.TxsSpendingNestedP2WPKHOutputs + metrics.TxsSpendingNestedP2WSHOutputs
+
+	data.New_P2WPKH_outputs = metrics.NewP2WPKHOutputs
+	data.New_P2WSH_outputs = metrics.NewP2WSHOutputs
+	data.Num_txs_creating_P2WPKH = metrics.TxsCreatingP2WPKHOutputs
+	data.Num_txs_creating_P2WSH = metrics.TxsCreatingP2WSHOutputs
+
+	data.Num_txs_signalling_rbf = metrics.TxsSignallingRBF
+	data.Num_consolidating_txs = metrics.TxsConsolidating
+	data.Num_outputs_consolidated = metrics.OutputsConsolidated
+	data.Num_batching_txs = metrics.TxsBatching
+
+	// Derived added below /////////////////////////////////////////////////////
+	data.Num_txs_creating_native_segwit_outputs = metrics.TxsCreatingP2WPKHOutputs + metrics.TxsCreatingP2WSHOutputs
+
+	data.Dust_bin_0 = metrics.DustBins[0]
+	data.Dust_bin_1 = metrics.DustBins[1]
+	data.Dust_bin_2 = metrics.DustBins[2]
+	data.Dust_bin_3 = metrics.DustBins[3]
+	data.Dust_bin_4 = metrics.DustBins[4]
+	data.Dust_bin_5 = metrics.DustBins[5]
+	data.Dust_bin_6 = metrics.DustBins[6]
+	data.Dust_bin_7 = metrics.DustBins[7]
+	data.Dust_bin_8 = metrics.DustBins[8]
+	data.Dust_bin_9 = metrics.DustBins[9]
+	data.Dust_bin_10 = metrics.DustBins[10]
+	data.Dust_bin_11 = metrics.DustBins[11]
+	data.Dust_bin_12 = metrics.DustBins[12]
+	data.Dust_bin_13 = metrics.DustBins[13]
+	data.Dust_bin_14 = metrics.DustBins[14]
+	data.Dust_bin_15 = metrics.DustBins[15]
+	data.Dust_bin_16 = metrics.DustBins[16]
+	data.Dust_bin_17 = metrics.DustBins[17]
+	data.Dust_bin_18 = metrics.DustBins[18]
+	data.Dust_bin_19 = metrics.DustBins[19]
+	data.Dust_bin_20 = metrics.DustBins[20]
+	data.Dust_bin_21 = metrics.DustBins[21]
+	data.Output_count_bin_0 = metrics.OutputCountBins[0]
+	data.Output_count_bin_1 = metrics.OutputCountBins[1]
+	data.Output_count_bin_2 = metrics.OutputCountBins[2]
+	data.Output_count_bin_3 = metrics.OutputCountBins[3]
+	data.Output_count_bin_4 = metrics.OutputCountBins[4]
+	data.Output_count_bin_5 = metrics.OutputCountBins[5]
+	data.Output_count_bin_6 = metrics.OutputCountBins[6]
+
+	if metrics.Txs != 0 {
+		data.Batch_range_0 = float64(metrics.OutputCountBins[0]) / float64(metrics.Txs)
+		data.Batch_range_1 = float64(metrics.OutputCountBins[1]) / float64(metrics.Txs)
+		data.Batch_range_2 = float64(metrics.OutputCountBins[2]) / float64(metrics.Txs)
+		data.Batch_range_3 = float64(metrics.OutputCountBins[3]) / float64(metrics.Txs)
+		data.Batch_range_4 = float64(metrics.OutputCountBins[4]) / float64(metrics.Txs)
+		data.Batch_range_5 = float64(metrics.OutputCountBins[5]) / float64(metrics.Txs)
+		data.Batch_range_6 = float64(metrics.OutputCountBins[6]) / float64(metrics.Txs)
+
+		data.Percent_txs_signalling_RBF = float64(metrics.TxsSignallingRBF) / float64(metrics.Txs)
+		data.Percent_txs_batching = float64(metrics.TxsBatching) / float64(metrics.Txs)
+		data.Percent_txs_consolidating = float64(metrics.TxsConsolidating) / float64(metrics.Txs)
+		data.Percent_txs_creating_native_segwit_outputs = float64(metrics.TxsCreatingP2WPKHOutputs+metrics.TxsCreatingP2WSHOutputs) / float64(metrics.Txs)
+		data.Percent_txs_creating_P2WSH_outputs = float64(metrics.TxsCreatingP2WSHOutputs) / float64(metrics.Txs)
+		data.Percent_txs_creating_P2WPKH_outputs = float64(metrics.TxsCreatingP2WPKHOutputs) / float64(metrics.Txs)
+
+		data.Percent_txs_spending_native_segwit_outputs = float64(metrics.TxsSpendingNativeP2WPKHOutputs+metrics.TxsSpendingNativeP2WSHOutputs) / float64(metrics.Txs)
+		data.Percent_txs_spending_nested_segwit_outputs = float64(metrics.TxsSpendingNestedP2WPKHOutputs+metrics.TxsSpendingNestedP2WSHOutputs) / float64(metrics.Txs)
+		data.Percent_txs_spending_native_P2WPKH_outputs = float64(metrics.TxsSpendingNativeP2WPKHOutputs) / float64(metrics.Txs)
+		data.Percent_txs_spending_native_P2WSH_outputs = float64(metrics.TxsSpendingNativeP2WSHOutputs) / float64(metrics.Txs)
+		data.Percent_txs_spending_nested_P2WPKH_outputs = float64(metrics.TxsSpendingNestedP2WPKHOutputs) / float64(metrics.Txs)
+		data.Percent_txs_spending_nested_P2WSH_outputs = float64(metrics.TxsSpendingNestedP2WSHOutputs) / float64(metrics.Txs)
+		data.Percent_txs_spending_P2WSH_outputs = float64(metrics.TxsSpendingNativeP2WSHOutputs+metrics.TxsSpendingNestedP2WSHOutputs) / float64(metrics.Txs)
+		data.Percent_txs_spending_P2WPKH_outputs = float64(metrics.TxsSpendingNativeP2WPKHOutputs+metrics.TxsSpendingNestedP2WPKHOutputs) / float64(metrics.Txs)
+		data.Percent_txs_that_are_segwit_txs = float64(metrics.SegWitTxs) / float64(metrics.Txs)
+
+	}
+
+	if metrics.Outs != 0 {
+		data.Percent_new_outs_in_dust_bin_0 = float64(metrics.DustBins[0]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_1 = float64(metrics.DustBins[1]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_2 = float64(metrics.DustBins[2]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_3 = float64(metrics.DustBins[3]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_4 = float64(metrics.DustBins[4]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_5 = float64(metrics.DustBins[5]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_6 = float64(metrics.DustBins[6]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_7 = float64(metrics.DustBins[7]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_8 = float64(metrics.DustBins[8]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_9 = float64(metrics.DustBins[9]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_10 = float64(metrics.DustBins[10]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_11 = float64(metrics.DustBins[11]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_12 = float64(metrics.DustBins[12]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_13 = float64(metrics.DustBins[13]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_14 = float64(metrics.DustBins[14]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_15 = float64(metrics.DustBins[15]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_16 = float64(metrics.DustBins[16]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_17 = float64(metrics.DustBins[17]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_18 = float64(metrics.DustBins[18]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_19 = float64(metrics.DustBins[19]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_20 = float64(metrics.DustBins[20]) / float64(metrics.Outs)
+		data.Percent_new_outs_in_dust_bin_21 = float64(metrics.DustBins[21]) / float64(metrics.Outs)
+
+		data.Percent_new_outs_P2WPKH_outputs = float64(metrics.NewP2WPKHOutputs) / float64(metrics.Outs)
+		data.Percent_new_outs_P2WSH_outputs = float64(metrics.NewP2WSHOutputs) / float64(metrics.Outs)
+	}
+
+	if metrics.Ins != 0 {
+		data.Percent_of_inputs_spending_nested_P2WPKH_output = float64(metrics.NestedP2WPKHOutputsSpent) / float64(metrics.Ins)
+		data.Percent_of_inputs_spending_native_P2WPKH_outputs = float64(metrics.NativeP2WPKHOutputsSpent) / float64(metrics.Ins)
+		data.Percent_of_inputs_spending_P2WPKH_outputs = float64(metrics.NativeP2WPKHOutputsSpent+metrics.NestedP2WPKHOutputsSpent) / float64(metrics.Ins)
+		data.Percent_of_inputs_spending_nested_P2WSH_outputs = float64(metrics.NestedP2WSHOutputsSpent) / float64(metrics.Ins)
+		data.Percent_of_inputs_spending_native_P2WSH_outputs = float64(metrics.NativeP2WSHOutputsSpent) / float64(metrics.Ins)
+		data.Percent_of_inputs_spending_P2WSH_outputs = float64(metrics.NativeP2WSHOutputsSpent+metrics.NestedP2WSHOutputsSpent) / float64(metrics.Ins)
+		data.Percent_of_inputs_spending_native_sw_outputs = float64(metrics.NativeP2WSHOutputsSpent+metrics.NativeP2WSHOutputsSpent) / float64(metrics.Ins)
+		data.Percent_inputs_consolidated = float64(metrics.OutputsConsolidated) / float64(metrics.Ins)
+	}
+
+	if metrics.SegWitTxs != 0 {
+		data.Percent_txs_native_segwit_over_total_sw_txs = float64(metrics.TxsSpendingNativeP2WSHOutputs+metrics.TxsSpendingNativeP2WPKHOutputs) / float64(metrics.SegWitTxs)
+	}
+
 	return data
 }
 
