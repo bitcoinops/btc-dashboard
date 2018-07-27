@@ -28,8 +28,7 @@ func main() {
 	pgPtr := flag.Bool("pg", false, "Set to true to move to postgres")
 	recoveryFlagPtr := flag.Bool("recovery", false, "Set to true to start workers on files in ./worker-progress")
 
-	// TODO: change default to postgres once tested.
-	dbPtr := flag.String("db", "influxdb", "Set to 'influxdb' or 'postgresql' to choose DB used. Defaults to influxdb ")
+	dbPtr := flag.String("db", "postgresql", "Set to 'influxdb' or 'postgresql' to choose DB used. Defaults to influxdb ")
 	flag.Parse()
 
 	// Set global variables

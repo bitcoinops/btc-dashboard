@@ -208,6 +208,7 @@ func (dash *Dashboard) insert_postgresql(stats BlockStats) bool {
 		log.Fatal("PG database insert failed! ", err)
 	}
 
+	log.Printf("\n\n STORED INTO POSTGRESQL \n\n")
 	return true
 }
 
@@ -303,6 +304,8 @@ func (dash *Dashboard) commitBatchInsert_postgresql() bool {
 	if err != nil {
 		log.Fatal("PG Commit Batch insert failed! ", err)
 	}
+
+	log.Printf("\n\n STORED INTO POSTGRESQL \n\n")
 
 	// Reset batch.
 	dash.pgBatch = make([]DashboardData, 0)

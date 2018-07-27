@@ -49,6 +49,7 @@ func (metrics BlockStats) transformToDashboardData() DashboardData {
 	data.Num_txs = metrics.Txs
 
 	data.Hash = metrics.Hash
+	data.Height = metrics.Height
 	data.Num_inputs = metrics.Ins
 	data.Num_outputs = metrics.Outs
 
