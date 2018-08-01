@@ -68,7 +68,7 @@ func setupDashboard() Dashboard {
 		case "influxdb":
 			DB_ADDR = "http://localhost:8086"
 		case "postgresql":
-			DB_ADDR = "http://localhost:5432"
+			DB_ADDR = "localhost:5432"
 		}
 	}
 
