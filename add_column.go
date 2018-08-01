@@ -6,6 +6,7 @@ import (
 	"github.com/go-pg/pg"
 	"log"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -50,16 +51,41 @@ func addColumn() {
 	start := 0
 	end := 534701
 
-	for i := start; i < end; i++ {
-		log.Println(i)
-		blockStatsRes, err := dash.client.GetBlockStats(int64(i), &[]string{"cons_inv"})
-		if err != nil {
-			log.Fatal(err)
-		}
-		blockStats := BlockStats{blockStatsRes}
+	var wg sync.WaitGroup
+	nBusyWorkers := 0
+	doneCh := make(chan struct{}, N_WORKERS)
 
-		dash.updateColumn(blockStats)
+	for i := start; i < end; i++ {
+		// Check if any workers are free.
+		select {
+		case <-doneCh:
+			nBusyWorkers--
+		default:
+		}
+
+		// If all workers are busy, wait and continue.
+		if nBusyWorkers >= N_WORKERS {
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+
+		nBusyWorkers++
+		wg.Add(1)
+
+		go func(i int) {
+			log.Println(i)
+			blockStatsRes, err := dash.client.GetBlockStats(int64(i), &[]string{"cons_inv"})
+			if err != nil {
+				log.Fatal(err)
+			}
+			blockStats := BlockStats{blockStatsRes}
+			dash.updateColumn(blockStats)
+
+			wg.Done()
+			doneCh <- struct{}{}
+		}(i)
 	}
+	wg.Wait()
 }
 
 // Open file, get stats, add new stats, save updated file, do update on postgres
