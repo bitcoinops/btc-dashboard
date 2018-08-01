@@ -25,6 +25,10 @@ func (metrics BlockStats) setInfluxTags(tags map[string]string, height int64) {
 
 func (metrics BlockStats) transformToDashboardData() DashboardData {
 	data := DashboardData{}
+	data.Id = data.Height
+
+	data.Mto_consolidations = metrics.Mto_consolidations
+	data.Mto_output_count = metrics.Mto_output_count
 
 	data.Time = metrics.Time
 
@@ -344,6 +348,11 @@ func (metrics BlockStats) setInfluxFields(fields map[string]interface{}) {
 }
 
 type DashboardData struct {
+	Id int64 `json:"id,omit_empty" sql:",notnull;primary_key"`
+
+	Mto_consolidations int64 `json:"mto_consolidations,omit_empty" sql:",notnull"`
+	Mto_output_count   int64 `json:"mto_output_count,omit_empty" sql:",notnull"`
+
 	Time int64 `json:"time" sql:",notnull"`
 
 	Avg_fee      int64 `json:"avg_fee" sql:",notnull"`

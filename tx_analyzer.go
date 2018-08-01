@@ -23,6 +23,7 @@ func main() {
 	endPtr := flag.Int("end", 0, "Last blockheight to analyze.")
 
 	// Flags for different modes of operation. Default is to live analysis/back-filling.
+	updateColPtr := flag.Bool("update", false, "Set to true to add a column (you need to change bits of code first)")
 	migratePtr := flag.Bool("migrate", false, "Set to true to migrate to different db")
 	pgPtr := flag.Bool("pg", false, "Set to true to move to postgres")
 	recoveryFlagPtr := flag.Bool("recovery", false, "Set to true to start workers on files in ./worker-progress")
@@ -35,6 +36,11 @@ func main() {
 	N_WORKERS = *nWorkersPtr
 	DB_USED = *dbPtr // TODO: kinda gross to make this a global...
 	BACKUP_JSON = *jsonPtr
+
+	if *updateColPtr {
+		addColumn()
+		return
+	}
 
 	if *pgPtr {
 		toPostgres()
