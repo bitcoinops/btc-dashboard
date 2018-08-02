@@ -15,6 +15,16 @@ const BATCH_RANGE_LENGTH = 7
 
 const MAX_ATTEMPTS = 3 // max number of DB write attempts before giving up
 
+// The Data type encapsulates all future tables added to the dashboard.
+// Each field should correspond to a different table and have its own struct type.
+// This makes using go-pg easy because of ORM.
+type Data struct {
+	Version            int64         `json:"version"`
+	DashboardDataTable DashboardData `json:"dashboard_data"`
+
+	// Future tables below:
+}
+
 type BlockStats struct {
 	*btcjson.GetBlockStatsResult
 }

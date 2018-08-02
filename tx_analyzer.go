@@ -23,6 +23,7 @@ func main() {
 	endPtr := flag.Int("end", 0, "Last blockheight to analyze.")
 
 	// Flags for different modes of operation. Default is to live analysis/back-filling.
+	updateVersionPtr := flag.Bool("update-version", false, "Set to true to update version number. Changes json files from DashboardData structs to the more general Data structs")
 	updateColPtr := flag.Bool("update", false, "Set to true to add a column (you need to change bits of code first)")
 	migratePtr := flag.Bool("migrate", false, "Set to true to migrate to different db")
 	pgPtr := flag.Bool("pg", false, "Set to true to move to postgres")
