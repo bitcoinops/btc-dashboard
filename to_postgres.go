@@ -10,29 +10,24 @@ import (
 	"github.com/go-pg/pg/orm"
 )
 
+/*
+toPostgres() goes through all json files in db-dump,
+decodes the file to a their corresponding struct(s), and then inserts them into postgresql tables
+
+If more tables are desired, you would need to add a new db.Insert here,
+and define a new model using the new struct definition.
+*/
 func toPostgres() {
-	/*
-			   This function goes through all json files in db-dump,
-		decodes the file to a DashboardData struct, and then inserts it into a postgresql table
-	*/
-	DB := os.Getenv("DB")
-	DB_USERNAME := os.Getenv("DB_USERNAME")
-	DB_PASSWORD := os.Getenv("DB_PASSWORD")
 	DB_ADDR, ok := os.LookupEnv("DB_ADDR")
 	if !ok {
-		switch DB_USED {
-		case "influxdb":
-			DB_ADDR = "http://localhost:8086"
-		case "postgresql":
-			DB_ADDR = "http://localhost:5432"
-		}
+		DB_ADDR = "http://localhost:5432"
 	}
 
 	db := pg.Connect(&pg.Options{
 		Addr:     DB_ADDR,
-		User:     DB_USERNAME,
-		Password: DB_PASSWORD,
-		Database: DB, // TODO: set this up properly
+		User:     os.Getenv("DB_USERNAME"),
+		Password: os.Getenv("DB_PASSWORD"),
+		Database: os.Getenv("DB"),
 	})
 
 	defer db.Close()
@@ -46,31 +41,23 @@ func toPostgres() {
 		log.Fatal(err)
 	}
 
-	currentDir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	dataDir := currentDir + "/db-backup"
-	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+	if _, err := os.Stat(JSON_DIR); os.IsNotExist(err) {
 		return
 	}
 
-	files, err := ioutil.ReadDir(dataDir)
+	files, err := ioutil.ReadDir(JSON_DIR)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Println(dataDir)
-
 	for i, fileInfo := range files {
-		file, err := os.Open(dataDir + "/" + fileInfo.Name())
+		file, err := os.Open(JSON_DIR + "/" + fileInfo.Name())
 		if err != nil {
 			log.Fatal(i, err, fileInfo.Name())
 		}
 
 		dec := json.NewDecoder(file)
-		var data DashboardData
+		var data Data
 
 		err = dec.Decode(&data)
 		if err != nil {
@@ -79,7 +66,7 @@ func toPostgres() {
 
 		file.Close()
 
-		err = db.Insert(&data)
+		err = db.Insert(&data.DashboardDataRow)
 		if err != nil {
 			log.Fatal(err)
 		}

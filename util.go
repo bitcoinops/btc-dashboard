@@ -1,12 +1,26 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 )
+
+func storeDataAsFile(data Data) {
+	dataFileName := fmt.Sprintf("%v/%v.json", JSON_DIR, data.DashboardDataRow.Height)
+	dataFile, err := os.Create(dataFileName)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	enc := json.NewEncoder(dataFile)
+	enc.Encode(data)
+
+	dataFile.Close()
+}
 
 // parseProgress takes in the contents of a worker-progress file
 // and returns the starting height, the last height completed, and the end height.

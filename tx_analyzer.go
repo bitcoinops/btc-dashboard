@@ -16,26 +16,25 @@ var BACKUP_JSON bool
 
 const N_WORKERS_DEFAULT = 2
 const DB_WAIT_TIME = 30
+const BLOCK_NUM_DIFF = 6
+const MAX_ATTEMPTS = 3 // max number of DB write attempts before giving up
+
+const CURRENT_VERSION_NUMBER = 1
 
 func main() {
 	nWorkersPtr := flag.Int("workers", N_WORKERS_DEFAULT, "Number of concurrent workers.")
 	startPtr := flag.Int("start", 0, "Starting blockheight.")
-	endPtr := flag.Int("end", 0, "Last blockheight to analyze.")
+	endPtr := flag.Int("end", -1, "Last blockheight to analyze.")
 
 	// Flags for different modes of operation. Default is to live analysis/back-filling.
-	updateVersionPtr := flag.Bool("update-version", false, "Set to true to update version number. Changes json files from DashboardData structs to the more general Data structs")
 	updateColPtr := flag.Bool("update", false, "Set to true to add a column (you need to change bits of code first)")
-	migratePtr := flag.Bool("migrate", false, "Set to true to migrate to different db")
-	pgPtr := flag.Bool("pg", false, "Set to true to move to postgres")
+	insertPtr := flag.Bool("insert-json", false, "Set to true to insert .json data files into PostgreSQL")
 	recoveryFlagPtr := flag.Bool("recovery", false, "Set to true to start workers on files in ./worker-progress")
-
-	dbPtr := flag.String("db", "postgresql", "Set to 'influxdb' or 'postgresql' to choose DB used. Defaults to influxdb ")
 	jsonPtr := flag.Bool("json", true, "Set to false to stop json logging in /db-backup")
 	flag.Parse()
 
 	// Set global variables
 	N_WORKERS = *nWorkersPtr
-	DB_USED = *dbPtr // TODO: kinda gross to make this a global...
 	BACKUP_JSON = *jsonPtr
 
 	// Create directory for json files.
@@ -60,13 +59,8 @@ func main() {
 		return
 	}
 
-	if *pgPtr {
+	if *insertPtr {
 		toPostgres()
-		return
-	}
-
-	if *migratePtr {
-		//	migrate()
 		return
 	}
 
@@ -74,8 +68,9 @@ func main() {
 		recoverFromFailure()
 	}
 
-	// If both a start and end are given, analyze that range.
-	if (*startPtr > 0) && (*endPtr > 0) {
+	// If an end value is given, analyze that range.
+	// ( the start value defaults to 0)
+	if *endPtr > 0 {
 		analyze(*startPtr, *endPtr)
 		return
 	}
@@ -237,24 +232,12 @@ func recoverFromFailure() {
 		contents := string(contentsBytes)
 
 		progress := parseProgress(contents)
-		if len(progress) == 3 {
-			log.Printf("Starting recovery worker %v on range [%v, %v) at height %v\n", i, progress[0], progress[2], progress[1])
-			go func(i int, file os.FileInfo) {
-				analyzeBlockRange(i, progress[1], progress[2], workerProgressDir+"/"+file.Name())
-				doneCh <- struct{}{}
-				wg.Done()
-			}(i, file)
-		} else if len(progress) == 1 {
-			// Finish work done during a live analysis.
-			log.Printf("Starting recovery worker %v on block %v\n", i, progress[0])
-			go func(i int, file os.FileInfo) {
-				analyzeBlockLive(int64(progress[0]), workerProgressDir+"/"+file.Name())
-				doneCh <- struct{}{}
-				wg.Done()
-			}(i, file)
-		} else {
-			log.Fatal("Bad progress given: ", progress)
-		}
+		log.Printf("Starting recovery worker %v on range [%v, %v) at height %v\n", i, progress[0], progress[2], progress[1])
+		go func(i int, file os.FileInfo) {
+			analyzeBlockRange(i, progress[1], progress[2], workerProgressDir+"/"+file.Name())
+			doneCh <- struct{}{}
+			wg.Done()
+		}(i, file)
 
 		i++
 	}
