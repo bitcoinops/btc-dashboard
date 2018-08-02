@@ -2,10 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/go-pg/pg"
+	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -35,80 +36,33 @@ Then carefully test the batched updates, which may or may not be possibly with g
 
 // many_to_one_consolidations
 
-func addColumn() {
-	dash := setupDashboard()
-	defer dash.shutdown()
-
-	dash.pgClient.OnQueryProcessed(func(event *pg.QueryProcessedEvent) {
-		query, err := event.FormattedQuery()
-		if err != nil {
-			panic(err)
-		}
-
-		log.Printf("%s %s", time.Since(event.StartTime), query)
-	})
-
-	start := 0
-	end := 534701
-
-	var wg sync.WaitGroup
-	nBusyWorkers := 0
-	doneCh := make(chan struct{}, N_WORKERS)
-
-	for i := start; i < end; i++ {
-		// Check if any workers are free.
-		select {
-		case <-doneCh:
-			nBusyWorkers--
-		default:
-		}
-
-		// If all workers are busy, wait and continue.
-		if nBusyWorkers >= N_WORKERS {
-			time.Sleep(50 * time.Millisecond)
-			continue
-		}
-
-		nBusyWorkers++
-		wg.Add(1)
-
-		go func(i int) {
-			log.Println(i)
-			blockStatsRes, err := dash.client.GetBlockStats(int64(i), &[]string{"cons_inv"})
-			if err != nil {
-				log.Fatal(err)
-			}
-			blockStats := BlockStats{blockStatsRes}
-			dash.updateColumn(blockStats)
-
-			wg.Done()
-			doneCh <- struct{}{}
-		}(i)
-	}
-	wg.Wait()
-}
-
 // Open file, get stats, add new stats, save updated file, do update on postgres
-func (dash *Dashboard) updateColumn(stats BlockStats) bool {
-	log.Println(stats)
+func (dash *Dashboard) updateColumn(fileName string) bool {
+	blockHeightStr := strings.Split(fileName, ".")[0]
+	blockHeight, err := strconv.Atoi(blockHeightStr)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	dataFileName := fmt.Sprintf("%v/%v.json", JSON_DIR, stats.Height)
+	dataFileName := JSON_DIR + "/" + fileName
+
+	blockStatsRes, err := dash.client.GetBlockStats(int64(blockHeight), &[]string{"cons_inv"})
+	if err != nil {
+		log.Fatal(err)
+	}
+	stats := BlockStats{blockStatsRes}
 
 	file, err := os.OpenFile(dataFileName, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		log.Fatal(err, dataFileName)
 	}
 
-	dec := json.NewDecoder(file)
-
 	var data DashboardData
+	dec := json.NewDecoder(file)
 	err = dec.Decode(&data)
 	if err != nil {
 		log.Fatal("JSON decode error", err, dataFileName)
 	}
-	file.Close()
-
-	log.Println(data)
 
 	// This is essential! The height column is the only primary
 	// key column, so it lets the update happen for only a specific column.
@@ -119,19 +73,20 @@ func (dash *Dashboard) updateColumn(stats BlockStats) bool {
 	data.Mto_consolidations = stats.Mto_consolidations
 	data.Mto_output_count = stats.Mto_output_count
 
-	log.Println(data.Mto_output_count)
-	log.Println(data)
+	log.Println(data.Id, data.Mto_output_count)
 
-	err = os.Remove(dataFileName)
+	// We're going to overwrite the file with the new data value now.
+	// So we clear it's contents and reset the I/O offset.
+	err = file.Truncate(0)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = file.Seek(0, 0)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	file, err = os.Create(dataFileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	// Write new data to file.
 	enc := json.NewEncoder(file)
 	err = enc.Encode(&data)
 	if err != nil {
@@ -149,4 +104,67 @@ func (dash *Dashboard) updateColumn(stats BlockStats) bool {
 	}
 
 	return true
+}
+
+// recoverFromFailure checks the worker-progress directory for any unfinished work from a previous job.
+// If there is any, it starts a new worker to continue the work for each previously failed worker.
+func addColumn() {
+	log.Println("Starting Column Update Process.")
+	if _, err := os.Stat(JSON_DIR); os.IsNotExist(err) {
+		return
+	}
+
+	files, err := ioutil.ReadDir(JSON_DIR)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(files))
+	doneCh := make(chan *Dashboard, N_WORKERS)
+
+	// Fill up doneCh with free Dashboards ready to go.
+	for i := 0; i < N_WORKERS; i++ {
+		dash := setupDashboard()
+		doneCh <- &dash
+	}
+
+	// Use available workers for work, loop finishes once all files have been assigned a worker.
+	i := 0 // index into files, incremented at bottom of loop.
+	for i < len(files) {
+		var dash *Dashboard
+
+		// Check if any workers are free.
+		// If not, wait a little and come back.
+		select {
+		case freeDash := <-doneCh:
+			dash = freeDash
+		default:
+			// Time chosen should be based on approximate time it it
+			// takes for one update to complete.
+			time.Sleep(150 * time.Millisecond)
+			continue
+		}
+
+		fileName := files[i].Name()
+
+		log.Println("Starting update on file: ", fileName)
+		go func(fileName string, dash *Dashboard) {
+			dash.updateColumn(fileName)
+
+			doneCh <- dash
+			wg.Done()
+		}(fileName, dash)
+
+		i++
+	}
+	wg.Wait()
+
+	// Shutdown dashboards.
+	for i := 0; i < N_WORKERS; i++ {
+		dash := <-doneCh
+		dash.shutdown()
+	}
+
+	log.Println("Finished with Update.")
 }

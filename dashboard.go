@@ -15,6 +15,7 @@ import (
 	"time"
 )
 
+const SHOW_QUERIES = true
 const JSON_DIR_RELATIVE = "/db-backup"
 
 var JSON_DIR string
@@ -122,6 +123,17 @@ func setupDashboard() Dashboard {
 			log.Fatal(err)
 		}
 
+		if SHOW_QUERIES {
+			db.OnQueryProcessed(func(event *pg.QueryProcessedEvent) {
+				query, err := event.FormattedQuery()
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				log.Printf("%s %s", time.Since(event.StartTime), query)
+			})
+		}
+
 		dash = Dashboard{
 			client:   client,
 			pgClient: db,
@@ -132,24 +144,6 @@ func setupDashboard() Dashboard {
 	default:
 		log.Fatal("unimplemented DB! ", DB_USED)
 	}
-
-	// Create directory for json files.
-	if BACKUP_JSON {
-		currentDir, err := os.Getwd()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		JSON_DIR = currentDir + JSON_DIR_RELATIVE
-		if _, err := os.Stat(JSON_DIR); os.IsNotExist(err) {
-			log.Printf("Creating json backup directory at: %v\n", JSON_DIR)
-			err := os.Mkdir(JSON_DIR, 0777)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-	}
-
 	return dash
 }
 

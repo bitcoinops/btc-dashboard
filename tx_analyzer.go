@@ -37,6 +37,23 @@ func main() {
 	DB_USED = *dbPtr // TODO: kinda gross to make this a global...
 	BACKUP_JSON = *jsonPtr
 
+	// Create directory for json files.
+	if BACKUP_JSON {
+		currentDir, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		JSON_DIR = currentDir + JSON_DIR_RELATIVE
+		if _, err := os.Stat(JSON_DIR); os.IsNotExist(err) {
+			log.Printf("Creating json backup directory at: %v\n", JSON_DIR)
+			err := os.Mkdir(JSON_DIR, 0777)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+
 	if *updateColPtr {
 		addColumn()
 		return
