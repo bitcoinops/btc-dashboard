@@ -201,7 +201,7 @@ func addVersionNumbers() {
 		default:
 			// Time chosen should be based on approximate time it it
 			// takes for one update to complete.
-			time.Sleep(150 * time.Millisecond)
+			time.Sleep(5 * time.Millisecond)
 			continue
 		}
 
@@ -232,16 +232,14 @@ func addVersionNumberToFile(fileName string) bool {
 	}
 
 	var data Data
+	var dashData DashboardData
 	dec := json.NewDecoder(file)
-	err = dec.Decode(&data)
+	err = dec.Decode(&dashData)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if data.Version == VERSION_NUMBER {
-		return true
-	}
-
+	data.DashboardDataRow = dashData
 	data.Version = VERSION_NUMBER
 
 	// We're going to overwrite the file with the new data value now.
