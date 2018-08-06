@@ -26,7 +26,7 @@ type BlockStats struct {
 
 func (metrics BlockStats) transformToDashboardData() DashboardData {
 	data := DashboardData{}
-	data.Id = data.Height
+	data.Id = metrics.Height
 
 	data.Mto_consolidations = metrics.Mto_consolidations
 	data.Mto_output_count = metrics.Mto_output_count
