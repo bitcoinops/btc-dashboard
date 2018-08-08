@@ -91,7 +91,7 @@ func setupDashboard() Dashboard {
 		pgClient: db,
 		pgBatch: dataBatch{
 			versions:          make([]int64, 0),
-			dashboardDataRows: make([]DashboardData, 0),
+			dashboardDataRows: make([]DashboardDataV2, 0),
 		},
 	}
 
@@ -151,7 +151,7 @@ func (dash *Dashboard) commitBatchInsert() bool {
 
 	// Reset batch.
 	dash.pgBatch.versions = make([]int64, 0)
-	dash.pgBatch.dashboardDataRows = make([]DashboardData, 0)
+	dash.pgBatch.dashboardDataRows = make([]DashboardDataV2, 0)
 
 	return true
 }

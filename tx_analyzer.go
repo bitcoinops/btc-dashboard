@@ -19,7 +19,7 @@ const DB_WAIT_TIME = 30
 const BLOCK_NUM_DIFF = 6
 const MAX_ATTEMPTS = 3 // max number of DB write attempts before giving up
 
-const CURRENT_VERSION_NUMBER = 1
+const CURRENT_VERSION_NUMBER = 2
 
 func main() {
 	nWorkersPtr := flag.Int("workers", N_WORKERS_DEFAULT, "Number of concurrent workers.")
