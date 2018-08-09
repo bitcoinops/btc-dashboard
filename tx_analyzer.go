@@ -27,6 +27,7 @@ func main() {
 	endPtr := flag.Int("end", -1, "Last blockheight to analyze.")
 
 	// Flags for different modes of operation. Default is to live analysis/back-filling.
+	mempoolPtr := flag.Bool("mempool", false, "Set to true to start a mempool analysis")
 	updateColPtr := flag.Bool("update", false, "Set to true to add a column (you need to change bits of code first)")
 	insertPtr := flag.Bool("insert-json", false, "Set to true to insert .json data files into PostgreSQL")
 	recoveryFlagPtr := flag.Bool("recovery", false, "Set to true to start workers on files in ./worker-progress")
@@ -52,6 +53,11 @@ func main() {
 				log.Fatal(err)
 			}
 		}
+	}
+
+	if *mempoolPtr {
+		liveMempoolAnalysis()
+		return
 	}
 
 	if *updateColPtr {
