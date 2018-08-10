@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -13,10 +12,16 @@ import (
 var N_WORKERS int
 var DB_USED string
 var BACKUP_JSON bool
+var JSON_DIR string
+var WORKER_PROGRESS_DIR string
+
+const SHOW_QUERIES = true
+const JSON_DIR_RELATIVE = "/db-backup"
+const WORKER_PROGRESS_DIR_RELATIVE = "/worker-progress"
 
 const N_WORKERS_DEFAULT = 2
 const DB_WAIT_TIME = 30
-const BLOCK_NUM_DIFF = 6
+const MIN_DIST_FROM_TIP = 6
 const MAX_ATTEMPTS = 3 // max number of DB write attempts before giving up
 
 const CURRENT_VERSION_NUMBER = 2
@@ -38,21 +43,21 @@ func main() {
 	N_WORKERS = *nWorkersPtr
 	BACKUP_JSON = *jsonPtr
 
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Create directory for json files.
 	if BACKUP_JSON {
-		currentDir, err := os.Getwd()
-		if err != nil {
-			log.Fatal(err)
-		}
-
 		JSON_DIR = currentDir + JSON_DIR_RELATIVE
-		if _, err := os.Stat(JSON_DIR); os.IsNotExist(err) {
-			log.Printf("Creating json backup directory at: %v\n", JSON_DIR)
-			err := os.Mkdir(JSON_DIR, 0777)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
+		createDirIfNotExist(JSON_DIR)
+	}
+
+	// Create worker progress directory if it doesn't exist yet.
+	WORKER_PROGRESS_DIR = currentDir + WORKER_PROGRESS_DIR_RELATIVE
+	if _, err := os.Stat(WORKER_PROGRESS_DIR); os.IsNotExist(err) {
+		createDirIfNotExist(WORKER_PROGRESS_DIR)
 	}
 
 	if *mempoolPtr {
@@ -77,7 +82,7 @@ func main() {
 	// If an end value is given, analyze that range.
 	// ( the start value defaults to 0)
 	if *endPtr > 0 {
-		analyze(*startPtr, *endPtr)
+		startBackfill(*startPtr, *endPtr)
 		return
 	}
 
@@ -86,29 +91,16 @@ func main() {
 }
 
 // Splits up work across N_WORKERS workers,each with their own RPC/db clients.
-func analyze(start, end int) {
+func startBackfill(start, end int) {
 	var wg sync.WaitGroup
 	workSplit := (end - start) / N_WORKERS
-	log.Println("work split: ", workSplit, end-start, start, end)
-
-	currentDir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Create the progress directory if it doesn't already exist.
-	workerProgressDir := currentDir + "/worker-progress"
-	createDirIfNotExist(workerProgressDir)
+	log.Println("Work split: ", workSplit, end-start, start, end)
 
 	formattedTime := time.Now().Format("01-02:15:04")
-
 	for i := 0; i < N_WORKERS; i++ {
 		wg.Add(1)
 		go func(i int) {
-			// Get name for this worker's progress file.
-			workFile := fmt.Sprintf("%v/worker-%v_%v", workerProgressDir, i, formattedTime)
-
-			analyzeBlockRange(i, start+(workSplit*i), start+(workSplit*(i+1)), workFile)
+			analyzeBlockRange(formattedTime, i, start+(workSplit*i), start+(workSplit*(i+1)))
 			wg.Done()
 		}(i)
 	}
@@ -116,29 +108,20 @@ func analyze(start, end int) {
 }
 
 // Analyzes all blocks from in the interval [start, end)
-func analyzeBlockRange(workerID, start, end int, workFile string) {
-	dash := setupDashboard()
+func analyzeBlockRange(formattedTime string, workerID, start, end int) {
+	dash := setupDashboard(formattedTime, workerID)
 	defer dash.shutdown()
-
-	log.Println(start, end)
 
 	// Keep track of time since last write.
 	// If it was less than DB_WAIT_TIME seconds ago. don't write yet.
 	// prevents us from overwhelming influxdb
 	lastWriteTime := time.Now()
 	lastWriteTime = lastWriteTime.Add(DB_WAIT_TIME * time.Second)
+
 	startTime := time.Now()
 
-	// Create file to record progress in.
-	// If the file already exists, this truncates it which is ok.
-	file, err := os.Create(workFile)
-	defer file.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// Record progress in file.
-	logProgressToFile(start, start, end, file)
+	logProgressToFile(start, start, end, dash.workFile)
 
 	for i := start; i < end; i++ {
 		startBlock := time.Now()
@@ -161,13 +144,7 @@ func analyzeBlockRange(workerID, start, end int, workFile string) {
 		lastWriteTime = time.Now().Add(DB_WAIT_TIME * time.Second)
 
 		// Record progress in file, overwriting previous record.
-		logProgressToFile(start, i, end, file)
-	}
-
-	// Worker finished successfully so its progress record is unneeded.
-	err = os.Remove(workFile)
-	if err != nil {
-		log.Printf("Error removing %v: %v\n", workFile, err)
+		logProgressToFile(start, i, end, dash.workFile)
 	}
 
 	log.Printf("Worker %v done analyzing %v blocks (height=%v) after %v\n", workerID, end-start, end, time.Since(startTime))
@@ -191,47 +168,32 @@ func (dash *Dashboard) analyzeBlock(blockHeight int64) {
 // If there is any, it starts a new worker to continue the work for each previously failed worker.
 func recoverFromFailure() {
 	log.Println("Starting Recovery Process.")
-	currentDir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	// If there is no worker-progress directory, then there aren't any failures :)
-	workerProgressDir := currentDir + "/worker-progress"
-	if _, err := os.Stat(workerProgressDir); os.IsNotExist(err) {
-		return
-	}
-
-	files, err := ioutil.ReadDir(workerProgressDir)
+	files, err := ioutil.ReadDir(WORKER_PROGRESS_DIR)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	var wg sync.WaitGroup
 	wg.Add(len(files))
-	nBusyWorkers := 0
-	doneCh := make(chan struct{}, N_WORKERS)
+
+	workers := make(chan struct{}, N_WORKERS)
+	for i := 0; i < N_WORKERS; i++ { // Signal that there are available workers.
+		workers <- struct{}{}
+	}
 
 	i := 0 // index into files, incremented at bottom of loop.
 	for i < len(files) {
 		// Check if any workers are free.
 		select {
-		case <-doneCh:
-			nBusyWorkers--
+		case <-workers:
 		default:
+			// If all workers are busy, wait and continue.
+			time.Sleep(1000 * time.Millisecond)
 		}
-
-		// If all workers are busy, wait and continue.
-		if nBusyWorkers >= N_WORKERS {
-			time.Sleep(250 * time.Millisecond)
-			continue
-		}
-
-		// Assign work to a free worker.
-		nBusyWorkers++
 
 		file := files[i]
-		contentsBytes, err := ioutil.ReadFile(workerProgressDir + "/" + file.Name())
+		contentsBytes, err := ioutil.ReadFile(WORKER_PROGRESS_DIR)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -240,8 +202,8 @@ func recoverFromFailure() {
 		progress := parseProgress(contents)
 		log.Printf("Starting recovery worker %v on range [%v, %v) at height %v\n", i, progress[0], progress[2], progress[1])
 		go func(i int, file os.FileInfo) {
-			analyzeBlockRange(i, progress[1], progress[2], workerProgressDir+"/"+file.Name())
-			doneCh <- struct{}{}
+			analyzeBlockRange(time.Now().Format("01-02:15:04"), i, progress[1], progress[2])
+			workers <- struct{}{}
 			wg.Done()
 		}(i, file)
 
@@ -258,17 +220,8 @@ func recoverFromFailure() {
 func doLiveAnalysis(height int) {
 	log.Println("Starting a live analysis of the blockchain.")
 
-	dash := setupDashboard()
+	dash := setupDashboard(time.Now().Format("01-02:15:04"), height)
 	defer dash.shutdown()
-
-	currentDir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Create the progress directory if it doesn't already exist.
-	workerProgressDir := currentDir + "/worker-progress"
-	createDirIfNotExist(workerProgressDir)
 
 	blockCount, err := dash.client.GetBlockCount()
 	if err != nil {
@@ -281,33 +234,35 @@ func doLiveAnalysis(height int) {
 	} else {
 		lastAnalysisStarted = int64(height)
 	}
-	workFile := fmt.Sprintf("%v/live-worker_%v", workerProgressDir, lastAnalysisStarted)
 
-	doneCh := make(chan struct{}, N_WORKERS)
+	workers := make(chan struct{}, N_WORKERS)
+	for i := 0; i < N_WORKERS; i++ {
+		workers <- struct{}{}
+	}
+
 	heightInRangeOfTip := (blockCount - lastAnalysisStarted) <= 6
-	nBusyWorkers := 0
 	for {
 		// Check if any workers are free.
 		select {
-		case <-doneCh:
-			nBusyWorkers--
+		case <-workers:
 		default:
+			time.Sleep(500 * time.Millisecond)
+			continue
 		}
 
-		if heightInRangeOfTip || (nBusyWorkers >= N_WORKERS) {
+		if heightInRangeOfTip {
 			time.Sleep(500 * time.Millisecond)
 			blockCount, err = dash.client.GetBlockCount()
 			if err != nil {
 				log.Fatal(err)
 			}
 		} else {
-			go func(blockHeight int64, workFile string) {
-				analyzeBlockLive(blockHeight, workFile)
-				doneCh <- struct{}{}
-			}(lastAnalysisStarted, workFile)
+			go func(blockHeight int64) {
+				analyzeBlockLive(blockHeight)
+				workers <- struct{}{}
+			}(lastAnalysisStarted)
 
 			lastAnalysisStarted += 1
-			workFile = fmt.Sprintf("%v/live-worker_%v", workerProgressDir, lastAnalysisStarted)
 		}
 
 		heightInRangeOfTip = (blockCount - lastAnalysisStarted) <= 6
@@ -316,28 +271,20 @@ func doLiveAnalysis(height int) {
 
 // analyzeBlock uses the getblockstats RPC to compute metrics of a single block.
 // It then stores the results in a batchpoint in the Dashboard's influx client.
-func analyzeBlockLive(blockHeight int64, workFile string) {
-	dash := setupDashboard()
+func analyzeBlockLive(blockHeight int64) {
+	dash := setupDashboard(time.Now().Format("01-02:15:04"), int(blockHeight))
 	defer dash.shutdown()
 
 	start := time.Now()
 
-	// Create file to record progress in.
-	file, err := os.Create(workFile)
-	defer file.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// Record progress in file.
-	logProgressToFile(int(blockHeight), int(blockHeight), int(blockHeight), file)
+	logProgressToFile(int(blockHeight), int(blockHeight), int(blockHeight), dash.workFile)
 
 	// Use getblockstats RPC and merge results into the metrics struct.
 	blockStatsRes, err := dash.client.GetBlockStats(blockHeight, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	blockStats := BlockStats{blockStatsRes}
 
 	// Insert into database.
@@ -345,12 +292,6 @@ func analyzeBlockLive(blockHeight int64, workFile string) {
 	if !ok {
 		log.Printf("DB write failed!")
 		return
-	}
-
-	// Worker finished successfully so its progress record is unneeded.
-	err = os.Remove(workFile)
-	if err != nil {
-		log.Printf("Error removing %v: %v\n", workFile, err)
 	}
 
 	log.Printf("Done with block %v after %v\n", blockHeight, time.Since(start))

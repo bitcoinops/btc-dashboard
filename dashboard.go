@@ -3,20 +3,13 @@ package main
 import (
 	"github.com/btcsuite/btcd/rpcclient"
 
+	"fmt"
 	"github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"
-
 	"log"
 	"os"
 	"time"
 )
-
-const SHOW_QUERIES = true
-const JSON_DIR_RELATIVE = "/db-backup"
-
-var JSON_DIR string
-
-// TODO: refactor all *general* methods on dashboard to collect errors from their specific implementations
 
 // TODO: rename
 // A Dashboard contains all the components necessary to make RPC calls to bitcoind, and
@@ -27,11 +20,21 @@ type Dashboard struct {
 	// Fields specifically for PostgreSQL
 	pgClient *pg.DB
 	pgBatch  dataBatch
+
+	workFile *os.File
 }
 
 // Assumes enviroment variables: DB, DB_USERNAME, DB_PASSWORD, BITCOIND_HOST, BITCOIND_USERNAME, BITCOIND_PASSWORD, are all set.
 // PostgreSQL and bitcoind should already be started.
-func setupDashboard() Dashboard {
+func setupDashboard(startTime string, id int) Dashboard {
+	log.Println("WPRD<", WORKER_PROGRESS_DIR)
+	workFileName := fmt.Sprintf("%v/worker-%v-%v", WORKER_PROGRESS_DIR, startTime, id)
+	// Create file to record progress in.
+	workFile, err := os.Create(workFileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	BITCOIND_HOST, ok := os.LookupEnv("BITCOIND_HOST")
 	if !ok {
 		BITCOIND_HOST = "localhost:8332"
@@ -93,6 +96,7 @@ func setupDashboard() Dashboard {
 			versions:          make([]int64, 0),
 			dashboardDataRows: make([]DashboardDataV2, 0),
 		},
+		workFile: workFile,
 	}
 
 	return dash
@@ -101,6 +105,12 @@ func setupDashboard() Dashboard {
 func (dash *Dashboard) shutdown() {
 	dash.client.Shutdown()
 	dash.pgClient.Close()
+
+	// Worker finished successfully so its progress record is unneeded.
+	err := os.Remove(WORKER_PROGRESS_DIR + "/" + dash.workFile.Name())
+	if err != nil {
+		log.Printf("Error removing %v: %v\n", dash.workFile, err)
+	}
 }
 
 // inserts a data from a single getblockstats call into the dashboard's DB

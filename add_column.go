@@ -114,6 +114,8 @@ func addColumn() {
 		return
 	}
 
+	formattedTime := time.Now().Format("01-02:15:04")
+
 	files, err := ioutil.ReadDir(JSON_DIR)
 	if err != nil {
 		log.Fatal(err)
@@ -121,12 +123,12 @@ func addColumn() {
 
 	var wg sync.WaitGroup
 	wg.Add(len(files))
-	doneCh := make(chan *Dashboard, N_WORKERS)
+	workers := make(chan *Dashboard, N_WORKERS)
 
 	// Fill up doneCh with free Dashboards ready to go.
 	for i := 0; i < N_WORKERS; i++ {
-		dash := setupDashboard()
-		doneCh <- &dash
+		dash := setupDashboard(formattedTime, i)
+		workers <- &dash
 	}
 
 	// Use available workers for work, loop finishes once all files have been assigned a worker.
@@ -137,7 +139,7 @@ func addColumn() {
 		// Check if any workers are free.
 		// If not, wait a little and come back.
 		select {
-		case freeDash := <-doneCh:
+		case freeDash := <-workers:
 			dash = freeDash
 		default:
 			// Time chosen should be based on approximate time it it
@@ -152,7 +154,7 @@ func addColumn() {
 		go func(fileName string, dash *Dashboard) {
 			dash.updateColumn(fileName)
 
-			doneCh <- dash
+			workers <- dash
 			wg.Done()
 		}(fileName, dash)
 
@@ -162,7 +164,7 @@ func addColumn() {
 
 	// Shutdown dashboards.
 	for i := 0; i < N_WORKERS; i++ {
-		dash := <-doneCh
+		dash := <-workers
 		dash.shutdown()
 	}
 
