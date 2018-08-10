@@ -37,7 +37,7 @@ Then carefully test the batched updates, which may or may not be possibly with g
 // many_to_one_consolidations
 
 // Open file, get stats, add new stats, save updated file, do update on postgres
-func (dash *Dashboard) updateColumn(fileName string) bool {
+func (worker *Worker) updateColumn(fileName string) bool {
 	blockHeightStr := strings.Split(fileName, ".")[0]
 	blockHeight, err := strconv.Atoi(blockHeightStr)
 	if err != nil {
@@ -46,7 +46,7 @@ func (dash *Dashboard) updateColumn(fileName string) bool {
 
 	dataFileName := JSON_DIR + "/" + fileName
 
-	blockStatsRes, err := dash.client.GetBlockStats(int64(blockHeight), &[]string{"cons_inv"})
+	blockStatsRes, err := worker.client.GetBlockStats(int64(blockHeight), &[]string{"cons_inv"})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -96,8 +96,8 @@ func (dash *Dashboard) updateColumn(fileName string) bool {
 	file.Close()
 	log.Println("Done with file: ", dataFileName)
 
-	//	res, err := dash.pgClient.Model(&data).Column("mto_consolidations").WherePK().Update()
-	res, err := dash.pgClient.Model(&data).Column("mto_consolidations").Column("mto_output_count").WherePK().Returning("*").Update()
+	//	res, err := worker.pgClient.Model(&data).Column("mto_consolidations").WherePK().Update()
+	res, err := worker.pgClient.Model(&data).Column("mto_consolidations").Column("mto_output_count").WherePK().Returning("*").Update()
 	if err != nil {
 		log.Println(res)
 		log.Fatal(err)
@@ -123,24 +123,24 @@ func addColumn() {
 
 	var wg sync.WaitGroup
 	wg.Add(len(files))
-	workers := make(chan *Dashboard, N_WORKERS)
+	workers := make(chan *Worker, N_WORKERS)
 
-	// Fill up doneCh with free Dashboards ready to go.
+	// Fill up doneCh with free Workers ready to go.
 	for i := 0; i < N_WORKERS; i++ {
-		dash := setupDashboard(formattedTime, i)
-		workers <- &dash
+		worker := setupWorker(formattedTime, i)
+		workers <- &worker
 	}
 
 	// Use available workers for work, loop finishes once all files have been assigned a worker.
 	i := 0 // index into files, incremented at bottom of loop.
 	for i < len(files) {
-		var dash *Dashboard
+		var worker *Worker
 
 		// Check if any workers are free.
 		// If not, wait a little and come back.
 		select {
-		case freeDash := <-workers:
-			dash = freeDash
+		case freeWorker := <-workers:
+			worker = freeWorker
 		default:
 			// Time chosen should be based on approximate time it it
 			// takes for one update to complete.
@@ -151,21 +151,21 @@ func addColumn() {
 		fileName := files[i].Name()
 
 		log.Println("Starting update on file: ", fileName)
-		go func(fileName string, dash *Dashboard) {
-			dash.updateColumn(fileName)
+		go func(fileName string, worker *Worker) {
+			worker.updateColumn(fileName)
 
-			workers <- dash
+			workers <- worker
 			wg.Done()
-		}(fileName, dash)
+		}(fileName, worker)
 
 		i++
 	}
 	wg.Wait()
 
-	// Shutdown dashboards.
+	// Shutdown workers.
 	for i := 0; i < N_WORKERS; i++ {
-		dash := <-workers
-		dash.shutdown()
+		worker := <-workers
+		worker.shutdown()
 	}
 
 	log.Println("Finished with Update.")

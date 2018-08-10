@@ -11,10 +11,9 @@ import (
 	"time"
 )
 
-// TODO: rename
-// A Dashboard contains all the components necessary to make RPC calls to bitcoind, and
+// A Worker contains all the components necessary to make RPC calls to bitcoind, and
 // to place data into PostgreSQL.
-type Dashboard struct {
+type Worker struct {
 	client *rpcclient.Client
 
 	// Fields specifically for PostgreSQL
@@ -26,8 +25,7 @@ type Dashboard struct {
 
 // Assumes enviroment variables: DB, DB_USERNAME, DB_PASSWORD, BITCOIND_HOST, BITCOIND_USERNAME, BITCOIND_PASSWORD, are all set.
 // PostgreSQL and bitcoind should already be started.
-func setupDashboard(startTime string, id int) Dashboard {
-	log.Println("WPRD<", WORKER_PROGRESS_DIR)
+func setupWorker(startTime string, id int) Worker {
 	workFileName := fmt.Sprintf("%v/worker-%v-%v", WORKER_PROGRESS_DIR, startTime, id)
 	// Create file to record progress in.
 	workFile, err := os.Create(workFileName)
@@ -89,7 +87,7 @@ func setupDashboard(startTime string, id int) Dashboard {
 		})
 	}
 
-	dash := Dashboard{
+	worker := Worker{
 		client:   client,
 		pgClient: db,
 		pgBatch: dataBatch{
@@ -99,28 +97,28 @@ func setupDashboard(startTime string, id int) Dashboard {
 		workFile: workFile,
 	}
 
-	return dash
+	return worker
 }
 
-func (dash *Dashboard) shutdown() {
-	dash.client.Shutdown()
-	dash.pgClient.Close()
+func (worker *Worker) shutdown() {
+	worker.client.Shutdown()
+	worker.pgClient.Close()
 
 	// Worker finished successfully so its progress record is unneeded.
-	err := os.Remove(WORKER_PROGRESS_DIR + "/" + dash.workFile.Name())
+	err := os.Remove(WORKER_PROGRESS_DIR + "/" + worker.workFile.Name())
 	if err != nil {
-		log.Printf("Error removing %v: %v\n", dash.workFile, err)
+		log.Printf("Error removing %v: %v\n", worker.workFile, err)
 	}
 }
 
-// inserts a data from a single getblockstats call into the dashboard's DB
-func (dash *Dashboard) insert(stats BlockStats) bool {
+// inserts a data from a single getblockstats call into the worker's DB
+func (worker *Worker) insert(stats BlockStats) bool {
 	data := Data{
 		Version:          CURRENT_VERSION_NUMBER,
 		DashboardDataRow: stats.transformToDashboardData(),
 	}
 
-	err := dash.pgClient.Insert(&data.DashboardDataRow)
+	err := worker.pgClient.Insert(&data.DashboardDataRow)
 	if err != nil {
 		log.Fatal("PG database insert failed! ", err)
 	}
@@ -136,14 +134,14 @@ func (dash *Dashboard) insert(stats BlockStats) bool {
 
 // setup the insertion of many BlockStats (stored internally)
 // uses batch insertion / bulk insertion capabilities of DB_USED whenever possible
-func (dash *Dashboard) batchInsert(stats BlockStats) {
-	dash.pgBatch.versions = append(dash.pgBatch.versions, CURRENT_VERSION_NUMBER)
-	dash.pgBatch.dashboardDataRows = append(dash.pgBatch.dashboardDataRows, stats.transformToDashboardData())
+func (worker *Worker) batchInsert(stats BlockStats) {
+	worker.pgBatch.versions = append(worker.pgBatch.versions, CURRENT_VERSION_NUMBER)
+	worker.pgBatch.dashboardDataRows = append(worker.pgBatch.dashboardDataRows, stats.transformToDashboardData())
 }
 
 // actually do the write of batch created
-func (dash *Dashboard) commitBatchInsert() bool {
-	err := dash.pgClient.Insert(&dash.pgBatch.dashboardDataRows)
+func (worker *Worker) commitBatchInsert() bool {
+	err := worker.pgClient.Insert(&worker.pgBatch.dashboardDataRows)
 	if err != nil {
 		log.Fatal("PG Commit Batch insert failed! ", err)
 	}
@@ -151,17 +149,17 @@ func (dash *Dashboard) commitBatchInsert() bool {
 	log.Printf("\n\n STORED INTO POSTGRESQL \n\n")
 
 	if BACKUP_JSON {
-		for i, dashDataRow := range dash.pgBatch.dashboardDataRows {
+		for i, dashDataRow := range worker.pgBatch.dashboardDataRows {
 			storeDataAsFile(Data{
-				Version:          dash.pgBatch.versions[i],
+				Version:          worker.pgBatch.versions[i],
 				DashboardDataRow: dashDataRow,
 			})
 		}
 	}
 
 	// Reset batch.
-	dash.pgBatch.versions = make([]int64, 0)
-	dash.pgBatch.dashboardDataRows = make([]DashboardDataV2, 0)
+	worker.pgBatch.versions = make([]int64, 0)
+	worker.pgBatch.dashboardDataRows = make([]DashboardDataV2, 0)
 
 	return true
 }

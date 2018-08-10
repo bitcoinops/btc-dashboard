@@ -109,33 +109,33 @@ func startBackfill(start, end int) {
 
 // Analyzes all blocks from in the interval [start, end)
 func analyzeBlockRange(formattedTime string, workerID, start, end int) {
-	dash := setupDashboard(formattedTime, workerID)
-	defer dash.shutdown()
+	worker := setupWorker(formattedTime, workerID)
+	defer worker.shutdown()
 
 	// Keep track of time since last write.
 	// If it was less than DB_WAIT_TIME seconds ago. don't write yet.
-	// prevents us from overwhelming influxdb
+	// prevents us from overwhelming the database.
 	lastWriteTime := time.Now()
 	lastWriteTime = lastWriteTime.Add(DB_WAIT_TIME * time.Second)
 
 	startTime := time.Now()
 
 	// Record progress in file.
-	logProgressToFile(start, start, end, dash.workFile)
+	logProgressToFile(start, start, end, worker.workFile)
 
 	for i := start; i < end; i++ {
 		startBlock := time.Now()
-		dash.analyzeBlock(int64(i))
+		worker.analyzeBlock(int64(i))
 		log.Printf("Worker %v: Done with %v blocks total (height=%v) after %v (%v) \n", workerID, i-start+1, i, time.Since(startTime), time.Since(startBlock))
 
-		// Only perform the write to influxDB if there hasn't been a write in the last 5 seconds.
+		// Only perform the write to database if there hasn't been a write in the last 5 seconds.
 		// And make sure to do the write before finishing.
 		if !time.Now().After(lastWriteTime) && (i != end-1) {
 			continue
 		}
 
 		// Write to database.
-		ok := dash.commitBatchInsert()
+		ok := worker.commitBatchInsert()
 		if !ok {
 			log.Println("DB write failed!", workerID)
 			return
@@ -144,24 +144,24 @@ func analyzeBlockRange(formattedTime string, workerID, start, end int) {
 		lastWriteTime = time.Now().Add(DB_WAIT_TIME * time.Second)
 
 		// Record progress in file, overwriting previous record.
-		logProgressToFile(start, i, end, dash.workFile)
+		logProgressToFile(start, i, end, worker.workFile)
 	}
 
 	log.Printf("Worker %v done analyzing %v blocks (height=%v) after %v\n", workerID, end-start, end, time.Since(startTime))
 }
 
 // analyzeBlock uses the getblockstats RPC to compute metrics of a single block.
-// It then stores the results in a batchpoint in the Dashboard's influx client.
-func (dash *Dashboard) analyzeBlock(blockHeight int64) {
+// It then stores the results in a batch to be inserted to db later.
+func (worker *Worker) analyzeBlock(blockHeight int64) {
 	// Use getblockstats RPC and merge results into the metrics struct.
-	blockStatsRes, err := dash.client.GetBlockStats(blockHeight, nil)
+	blockStatsRes, err := worker.client.GetBlockStats(blockHeight, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	blockStats := BlockStats{blockStatsRes}
 
-	dash.batchInsert(blockStats)
+	worker.batchInsert(blockStats)
 }
 
 // recoverFromFailure checks the worker-progress directory for any unfinished work from a previous job.
@@ -220,17 +220,17 @@ func recoverFromFailure() {
 func doLiveAnalysis(height int) {
 	log.Println("Starting a live analysis of the blockchain.")
 
-	dash := setupDashboard(time.Now().Format("01-02:15:04"), height)
-	defer dash.shutdown()
+	worker := setupWorker(time.Now().Format("01-02:15:04"), height)
+	defer worker.shutdown()
 
-	blockCount, err := dash.client.GetBlockCount()
+	blockCount, err := worker.client.GetBlockCount()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	var lastAnalysisStarted int64
 	if height == 0 {
-		lastAnalysisStarted = blockCount - 6
+		lastAnalysisStarted = blockCount - MIN_DIST_FROM_TIP
 	} else {
 		lastAnalysisStarted = int64(height)
 	}
@@ -240,7 +240,7 @@ func doLiveAnalysis(height int) {
 		workers <- struct{}{}
 	}
 
-	heightInRangeOfTip := (blockCount - lastAnalysisStarted) <= 6
+	heightInRangeOfTip := (blockCount - lastAnalysisStarted) <= MIN_DIST_FROM_TIP
 	for {
 		// Check if any workers are free.
 		select {
@@ -252,7 +252,7 @@ func doLiveAnalysis(height int) {
 
 		if heightInRangeOfTip {
 			time.Sleep(500 * time.Millisecond)
-			blockCount, err = dash.client.GetBlockCount()
+			blockCount, err = worker.client.GetBlockCount()
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -265,30 +265,30 @@ func doLiveAnalysis(height int) {
 			lastAnalysisStarted += 1
 		}
 
-		heightInRangeOfTip = (blockCount - lastAnalysisStarted) <= 6
+		heightInRangeOfTip = (blockCount - lastAnalysisStarted) <= MIN_DIST_FROM_TIP
 	}
 }
 
 // analyzeBlock uses the getblockstats RPC to compute metrics of a single block.
-// It then stores the results in a batchpoint in the Dashboard's influx client.
+// It then stores the results in a database (and json file if desired).
 func analyzeBlockLive(blockHeight int64) {
-	dash := setupDashboard(time.Now().Format("01-02:15:04"), int(blockHeight))
-	defer dash.shutdown()
+	worker := setupWorker(time.Now().Format("01-02:15:04"), int(blockHeight))
+	defer worker.shutdown()
 
 	start := time.Now()
 
 	// Record progress in file.
-	logProgressToFile(int(blockHeight), int(blockHeight), int(blockHeight), dash.workFile)
+	logProgressToFile(int(blockHeight), int(blockHeight), int(blockHeight), worker.workFile)
 
 	// Use getblockstats RPC and merge results into the metrics struct.
-	blockStatsRes, err := dash.client.GetBlockStats(blockHeight, nil)
+	blockStatsRes, err := worker.client.GetBlockStats(blockHeight, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 	blockStats := BlockStats{blockStatsRes}
 
 	// Insert into database.
-	ok := dash.insert(blockStats)
+	ok := worker.insert(blockStats)
 	if !ok {
 		log.Printf("DB write failed!")
 		return
