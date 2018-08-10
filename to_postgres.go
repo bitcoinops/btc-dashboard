@@ -10,6 +10,8 @@ import (
 	"github.com/go-pg/pg/orm"
 )
 
+// TODO: fix this to get read Data instead of DashboardData
+
 /*
 toPostgres() goes through all json files in db-dump,
 decodes the file to a their corresponding struct(s), and then inserts them into postgresql tables
@@ -32,7 +34,7 @@ func toPostgres() {
 
 	defer db.Close()
 
-	model := interface{}((*DashboardData)(nil))
+	model := interface{}((*DashboardDataV2)(nil))
 	err := db.CreateTable(model, &orm.CreateTableOptions{
 		Temp:        false,
 		IfNotExists: true,

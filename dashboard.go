@@ -65,7 +65,7 @@ func setupDashboard() Dashboard {
 		Database: os.Getenv("DB"),
 	})
 
-	model := interface{}((*DashboardData)(nil))
+	model := interface{}((*DashboardDataV2)(nil))
 	err = db.CreateTable(model, &orm.CreateTableOptions{
 		Temp:        false,
 		IfNotExists: true,

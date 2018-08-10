@@ -24,7 +24,7 @@ Add column in psql
   ALTER TABLE dashboard_data ADD COLUMN mto_consolidations bigint;
 
 
-Add the column to the DashboardData struct
+Add the column to the DashboardDataV2 struct
 
 Tweak getblockstats, and the getblockstats RPC
 
@@ -57,7 +57,7 @@ func (dash *Dashboard) updateColumn(fileName string) bool {
 		log.Fatal(err, dataFileName)
 	}
 
-	var data DashboardData
+	var data DashboardDataV2
 	dec := json.NewDecoder(file)
 	err = dec.Decode(&data)
 	if err != nil {
