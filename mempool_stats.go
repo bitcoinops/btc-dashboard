@@ -97,7 +97,6 @@ func (md *MempoolData) assignTxsToFeeBuckets(rawMempool map[string]btcjson.GetRa
 
 		for i := 0; i < NUM_FEE_BUCKETS; i++ {
 			if trueFeeRate >= FEE_BUCKET_VALUES[i] && trueFeeRate < FEE_BUCKET_VALUES[i+1] {
-				log.Println(i)
 				md.SizePerFeeBucket[i]++
 				md.BytesPerFeeBucket[i] += int(mempoolEntry.Size)
 				md.TotalFeePerFeeBucket[i] += mempoolEntry.Fees.ModifiedFee
@@ -173,8 +172,6 @@ func liveMempoolAnalysis() {
 			nextData := getMempoolData(mpInfo, currentTime)
 			nextData.assignTxsToFeeBuckets(rawMempool)
 			nextData.diffWithPrev(&mempoolData)
-
-			log.Println(nextData)
 
 			mempoolData = nextData
 

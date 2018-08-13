@@ -1,25 +1,30 @@
 # btc-dashboard
-Fills an influx database with statistics about Bitcoin blocks retrieved by the (extended) getblockstats RPC.
+Implements a stats tracker for various stats derived from the Bitcoin `getblockstats` RPC. 
+Stats are stored in a Postgres database and as JSON files.
 
+Additionally, tracks mempool stats using `getmempoolinfo` and `getrawmempool` RPCs.
+
+The dashboard is publicly available at: TODO: url
 ## Stats Tracked
-The program logs all statistics from getblockstats, and some statistics derived from these (e.g. percentage of transactions that have quality X).  
+The program logs all statistics from getblockstats, and some statistics derived from these (e.g. percentage of transactions that have quality X).
 
-The exact statistics tracked are those set in `setInfluxFields`
+The exact statistics tracked are those set in the struct definition for `DashboardData` in `type_and_helpers.go`
 
 ## Requirements
 Uses `expand-getblockstats` branch of https://github.com/bitcoinops/bitcoin with extended getblockstats RPC.
 Uses `dashboard-rpc` branch of https://github.com/bitcoinops/btcd for RPC client that can use the extended getblockstats RPC.
-Uses standard influxdb client.
+Uses `go-pg` as a Postgres client.
 
 Checkout the `dashboard-rpc` branch of btcd before running `go build`.
 
 ## Setup
-### Set environment variables for influxdb
-`DB` the name of the database in influxdb,  
-`DB_USERNAME` influxdb username,  
-`DB_PASSWORD` influxdb password,  
-and optionally `DB_ADDR` if using a remote database. If not specified `DB_ADDR` defaults to "http://localhost:8086" which is the default address for a local influxdb instance.
+### Set environment variables for Postgres
+`DB` the name of the database,
+`DB_USERNAME` Postgres username,
+`DB_PASSWORD` Postgres password,
+and optionally `DB_ADDR` if using a remote database. If not specified `DB_ADDR` defaults to "http://localhost:5432" which is the default address for a local Postgres instance.
 
+You don't have to specify a table, or create one yourself. This set of programs uses `go-pg`, which we use to create tables with schemas derived from Go struct definitions.
 
 ### Set environment variables for bitcoind RPC access
 `BITCOIND_USERNAME`, and
@@ -33,12 +38,24 @@ Copy the file `example_env_file.txt` and edit to match your local configuration.
 The command `export $(cat example_env_file.txt |xargs -L 1)` should set environment variables to match the file.
 
 ## Usage
-Assumes previously mentioned environment variables are set, and correctly correspond to running instances of `influxdb` and `bitcoind`.
+Assumes previously mentioned environment variables are set, and correctly correspond to running instances of `postgres` and `bitcoind`.
 
 ```
 ./btc-dashboard [OPTIONAL: -recovery] [OPTIONAL: -start=X] [OPTIONAL: -end=Y] [-workers=N]
 
 ```
+
+### Modes of Operation
+* `-mempool` Setting this flag starts a mempool tracker that continuously stores data derived from RPCs into a database. It does not halt by itself, but is safe to stop (catches SIGINT and SIGTERM after all writes are finished).
+
+* `-recovery`Starts workers on any progress files left over from previously unfinished runs.
+
+* `-insert-json` Uploads contents of every JSON file in the default directory and uploads them into Postgres.
+
+* `-json=[true,false]`  If set, every `DashboardData` struct inserted into the database will also be saved as a JSON file. Defaults to `true`. The default directory is `./db-backup`.
+
+* `-update` Set to true to update a column/add a table. Requires code change in add_column.go to go along with new table/column. Updates by reading the JSON backups and overwriting them.
+
 
 Setting the `-workers=N` flag will cause the program to start `N` different RPC clients to do its work. The default value is 2.
 
@@ -49,7 +66,8 @@ Not using the `-end=Y` flag will cause the program to do a live analysis. In thi
 
 The live analysis processes blocks one at a time with a single-worker as they come in.
 
-The `-recovery` flag is described in the following section.
+Otherwise with at least the `-end` flag set, the program starts a backfill analysis from the interval [start, end), where start defaults to 0.
+
 
 ## Tracking Progress and Recovering from Failures
 Because back-filling a database with the statistics from the entire Bitcoin blockchain can take a while, this program also implements some basic features to track progress of workers and features to recover from program failures.
@@ -76,7 +94,4 @@ which will start 2 workers to finish up this work, which will continue to mark t
 Workers that complete their assigned work delete their progress files.
 
 ## Results
-Results from influxdb can be plugged into Grafana for visualization.
-
-
-
+Results from the database can be plugged into Grafana for visualization.

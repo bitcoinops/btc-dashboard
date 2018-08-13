@@ -105,7 +105,7 @@ func (worker *Worker) shutdown() {
 	worker.pgClient.Close()
 
 	// Worker finished successfully so its progress record is unneeded.
-	err := os.Remove(WORKER_PROGRESS_DIR + "/" + worker.workFile.Name())
+	err := os.Remove(worker.workFile.Name())
 	if err != nil {
 		log.Printf("Error removing %v: %v\n", worker.workFile, err)
 	}
