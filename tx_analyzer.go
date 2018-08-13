@@ -45,7 +45,7 @@ func main() {
 
 	currentDir, err := os.Getwd()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error getting working directory: ", err)
 	}
 
 	// Create directory for json files.
@@ -156,7 +156,7 @@ func (worker *Worker) analyzeBlock(blockHeight int64) {
 	// Use getblockstats RPC and merge results into the metrics struct.
 	blockStatsRes, err := worker.client.GetBlockStats(blockHeight, nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error with getblockstats RPC: ", err)
 	}
 
 	blockStats := BlockStats{blockStatsRes}
@@ -171,7 +171,7 @@ func recoverFromFailure() {
 
 	files, err := ioutil.ReadDir(WORKER_PROGRESS_DIR)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error reading worker_progress directory: ", err)
 	}
 
 	var wg sync.WaitGroup
@@ -195,7 +195,7 @@ func recoverFromFailure() {
 		file := files[i]
 		contentsBytes, err := ioutil.ReadFile(WORKER_PROGRESS_DIR)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("Error reading wp file: ", err)
 		}
 		contents := string(contentsBytes)
 
@@ -225,7 +225,7 @@ func doLiveAnalysis(height int) {
 
 	blockCount, err := worker.client.GetBlockCount()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error with getblockcount RPC: ", err)
 	}
 
 	var lastAnalysisStarted int64
@@ -254,7 +254,7 @@ func doLiveAnalysis(height int) {
 			time.Sleep(500 * time.Millisecond)
 			blockCount, err = worker.client.GetBlockCount()
 			if err != nil {
-				log.Fatal(err)
+				log.Fatal("Error with getblockcount RPC: ", err)
 			}
 		} else {
 			go func(blockHeight int64) {
@@ -283,7 +283,7 @@ func analyzeBlockLive(blockHeight int64) {
 	// Use getblockstats RPC and merge results into the metrics struct.
 	blockStatsRes, err := worker.client.GetBlockStats(blockHeight, nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error with getblockstats RPC: ", err)
 	}
 	blockStats := BlockStats{blockStatsRes}
 

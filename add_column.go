@@ -13,9 +13,9 @@ import (
 
 /*
 
-HOW TO ADD A NEW COLUMN!
+HOW TO ADD A NEW COLUMN/TABLE
 
-Define a primary key in the database (blockheight)
+Define a primary key in the table ("id" in the main dashboard_data table)
 
   ALTER TABLE dashboard_DATA ADD PRIMARY KEY (height);
 
@@ -23,32 +23,35 @@ Add column in psql
 
   ALTER TABLE dashboard_data ADD COLUMN mto_consolidations bigint;
 
+Add the column to the DashboardDataV2 struct OR Add a new table and a corresponding struct, into Data
+Tweak worker methods/fields to work with the new field.
 
-Add the column to the DashboardDataV2 struct
+Tweak getblockstats, and the getblockstats RPC implementation
 
-Tweak getblockstats, and the getblockstats RPC
-
-Example code should work for single updates (but check on local dashboard_data so you don't break things)
+Example code should work for single updates (but check on a test dashboard_data so you don't break things)
 
 Then carefully test the batched updates, which may or may not be possibly with go-pg
 
 */
 
-// many_to_one_consolidations
+// many_to_one_consolidations update example below (actually was used)
 
 // Open file, get stats, add new stats, save updated file, do update on postgres
 func (worker *Worker) updateColumn(fileName string) bool {
+	// Make dead code by default to to prevent accidental usage.
+	return false
+
 	blockHeightStr := strings.Split(fileName, ".")[0]
 	blockHeight, err := strconv.Atoi(blockHeightStr)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error getting blockHeight from file (updateColumn): ", err)
 	}
 
 	dataFileName := JSON_DIR + "/" + fileName
 
 	blockStatsRes, err := worker.client.GetBlockStats(int64(blockHeight), &[]string{"cons_inv"})
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error with getblockstats RPC", err)
 	}
 	stats := BlockStats{blockStatsRes}
 
@@ -79,18 +82,18 @@ func (worker *Worker) updateColumn(fileName string) bool {
 	// So we clear it's contents and reset the I/O offset.
 	err = file.Truncate(0)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("File truncate error: ", err)
 	}
 	_, err = file.Seek(0, 0)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("File seek error: ", err)
 	}
 
 	// Write new data to file.
 	enc := json.NewEncoder(file)
 	err = enc.Encode(&data)
 	if err != nil {
-		log.Fatal(err, data.Height)
+		log.Fatal("JSON Encoding error: ", err, data.Height)
 	}
 
 	file.Close()
@@ -100,7 +103,7 @@ func (worker *Worker) updateColumn(fileName string) bool {
 	res, err := worker.pgClient.Model(&data).Column("mto_consolidations").Column("mto_output_count").WherePK().Returning("*").Update()
 	if err != nil {
 		log.Println(res)
-		log.Fatal(err)
+		log.Fatal("Error updating columns", err)
 	}
 
 	return true
@@ -118,7 +121,7 @@ func addColumn() {
 
 	files, err := ioutil.ReadDir(JSON_DIR)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error reading directory (addColumn)", err)
 	}
 
 	var wg sync.WaitGroup

@@ -13,7 +13,7 @@ func storeDataAsFile(data Data) {
 	dataFileName := fmt.Sprintf("%v/%v.json", JSON_DIR, data.DashboardDataRow.Height)
 	dataFile, err := os.Create(dataFileName)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error creating file", err)
 	}
 
 	enc := json.NewEncoder(dataFile)
@@ -36,7 +36,7 @@ func parseProgress(contents string) []int {
 		}
 		height, err := strconv.Atoi(split[1])
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("Error in parseProgress, strconv parsing: ", err)
 		}
 
 		result = append(result, height)
