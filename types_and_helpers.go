@@ -80,8 +80,9 @@ func (metrics BlockStats) transformToDashboardData() DashboardDataV2 {
 	data.Value_of_native_P2WSH_outputs_spent = metrics.Value_of_native_P2WSH_outputs_spent
 	data.Value_of_nested_P2WPKH_outputs_spent = metrics.Value_of_nested_P2WPKH_outputs_spent
 	data.Value_of_nested_P2WSH_outputs_spent = metrics.Value_of_nested_P2WSH_outputs_spent
-	data.Value_of_new_P2WPKH_outputs = metrics.Value_of_new_P2WPKH_outputs
-	data.Value_of_new_P2WSH_outputs = metrics.Value_of_new_P2WSH_outputs
+
+	data.Value_of_native_P2WPKH_outputs_created = metrics.Value_of_native_P2WPKH_outputs_created
+	data.Value_of_native_P2WSH_outputs_created = metrics.Value_of_native_P2WSH_outputs_created
 
 	data.New_P2WPKH_outputs = metrics.NewP2WPKHOutputs
 	data.New_P2WSH_outputs = metrics.NewP2WSHOutputs
@@ -99,8 +100,7 @@ func (metrics BlockStats) transformToDashboardData() DashboardDataV2 {
 
 	data.Mto_consolidations = metrics.Mto_consolidations
 	data.Mto_output_count = metrics.Mto_output_count
-	data.Mto_avg_fee = metrics.Mto_avg_fee
-	data.Mto_avg_value = metrics.Mto_avg_value
+	data.Mto_total_value = metrics.Mto_total_value
 
 	// Derived added below /////////////////////////////////////////////////////
 	data.Percent_txs_by_output_count = make([]float64, len(data.Txs_by_output_count))
@@ -208,12 +208,12 @@ type DashboardDataV2 struct {
 	Txs_spending_native_p2wpkh_outputs int64 `json:"txs_spending_native_p2wpkh_outputs" sql:",notnull"`
 	Txs_spending_native_p2wsh_outputs  int64 `json:"txs_spending_native_p2wsh_outputs" sql:",notnull"`
 
-	Value_of_nested_P2WPKH_outputs_spent int64 `json:"value_of_nested_P2WPKH_outputs_spent" sql:",notnull"`
-	Value_of_nested_P2WSH_outputs_spent  int64 `json:"value_of_nested_P2WSH_outputs_spent" sql:",notnull"`
-	Value_of_native_P2WPKH_outputs_spent int64 `json:"value_of_native_P2WPKH_outputs_spent" sql:",notnull"`
-	Value_of_native_P2WSH_outputs_spent  int64 `json:"value_of_native_P2WSH_outputs_spent" sql:",notnull"`
-	Value_of_new_P2WPKH_outputs          int64 `json:"value_of_new_P2WPKH_outputs" sql:",notnull"`
-	Value_of_new_P2WSH_outputs           int64 `json:"value_of_new_P2WSH_outputs" sql:",notnull"`
+	Value_of_nested_P2WPKH_outputs_spent   int64 `json:"value_of_nested_P2WPKH_outputs_spent" sql:",notnull"`
+	Value_of_nested_P2WSH_outputs_spent    int64 `json:"value_of_nested_P2WSH_outputs_spent" sql:",notnull"`
+	Value_of_native_P2WPKH_outputs_spent   int64 `json:"value_of_native_P2WPKH_outputs_spent" sql:",notnull"`
+	Value_of_native_P2WSH_outputs_spent    int64 `json:"value_of_native_P2WSH_outputs_spent" sql:",notnull"`
+	Value_of_native_P2WPKH_outputs_created int64 `json:"value_of_native_P2WPKH_outputs_created" sql:",notnull"`
+	Value_of_native_P2WSH_outputs_created  int64 `json:"value_of_native_P2WSH_outputs_created" sql:",notnull"`
 
 	New_P2WPKH_outputs int64 `json:"new_P2WPKH_outputs" sql:",notnull"`
 	New_P2WSH_outputs  int64 `json:"new_P2WSH_outputs" sql:",notnull"`
@@ -231,8 +231,7 @@ type DashboardDataV2 struct {
 
 	Mto_consolidations int64 `json:"mto_consolidations" sql:",notnull"`
 	Mto_output_count   int64 `json:"mto_output_count" sql:",notnull"`
-	Mto_avg_fee        int64 `json:"mto_avg_fee" sql:",notnull"`
-	Mto_avg_value      int64 `json:"mto_avg_value" sql:",notnull"`
+	Mto_total_value    int64 `json:"mto_total_value" sql:",notnull"`
 
 	// Fields derived from getblockstats fields below.
 	Num_txs_creating_native_segwit_outputs int64 `json:"num_txs_creating_native_segwit_outputs" sql:",notnull"`
