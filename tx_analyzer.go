@@ -144,7 +144,7 @@ func analyzeBlockRange(formattedTime string, workerID, start, end int) {
 		lastWriteTime = time.Now().Add(DB_WAIT_TIME * time.Second)
 
 		// Record progress in file, overwriting previous record.
-		logProgressToFile(start, i, end, worker.workFile)
+		logProgressToFile(start, i+1, end, worker.workFile)
 	}
 
 	log.Printf("Worker %v done analyzing %v blocks (height=%v) after %v\n", workerID, end-start, end, time.Since(startTime))
@@ -193,7 +193,7 @@ func recoverFromFailure() {
 		}
 
 		file := files[i]
-		contentsBytes, err := ioutil.ReadFile(WORKER_PROGRESS_DIR)
+		contentsBytes, err := ioutil.ReadFile(WORKER_PROGRESS_DIR + "/" + file.Name())
 		if err != nil {
 			log.Fatal("Error reading wp file: ", err)
 		}
