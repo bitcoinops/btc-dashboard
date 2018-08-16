@@ -158,7 +158,7 @@ func (metrics BlockStats) transformToDashboardData() DashboardDataV2 {
 
 // Custom struct type for custom struct tags and to add derived fields (e.g. all the 'percentage' fields)
 type DashboardDataV2 struct {
-	Id int64 `json:"id,omit_empty" sql:",notnull;primary_key"`
+	Id int64 `json:"id,omit_empty" sql:",notnull"`
 
 	Avg_fee      int64 `json:"avg_fee" sql:",notnull"`
 	Avg_fee_rate int64 `json:"avg_fee_rate" sql:",notnull"`

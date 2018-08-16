@@ -15,7 +15,7 @@ var BACKUP_JSON bool
 var JSON_DIR string
 var WORKER_PROGRESS_DIR string
 
-const SHOW_QUERIES = true
+const SHOW_QUERIES = false
 const JSON_DIR_RELATIVE = "/db-backup"
 const WORKER_PROGRESS_DIR_RELATIVE = "/worker-progress"
 
@@ -182,6 +182,11 @@ func recoverFromFailure() {
 		workers <- struct{}{}
 	}
 
+	progressFiles := make([]os.FileInfo, len(files))
+	for i := 0; i < len(files); i++ {
+		progressFiles[i] = files[i]
+	}
+
 	i := 0 // index into files, incremented at bottom of loop.
 	for i < len(files) {
 		// Check if any workers are free.
@@ -190,22 +195,27 @@ func recoverFromFailure() {
 		default:
 			// If all workers are busy, wait and continue.
 			time.Sleep(1000 * time.Millisecond)
+			continue
 		}
 
-		file := files[i]
+		file := progressFiles[i]
 		contentsBytes, err := ioutil.ReadFile(WORKER_PROGRESS_DIR + "/" + file.Name())
 		if err != nil {
 			log.Fatal("Error reading wp file: ", err)
 		}
 		contents := string(contentsBytes)
-
 		progress := parseProgress(contents)
 		log.Printf("Starting recovery worker %v on range [%v, %v) at height %v\n", i, progress[0], progress[2], progress[1])
-		go func(i int, file os.FileInfo) {
+		go func(i int) {
 			analyzeBlockRange(time.Now().Format("01-02:15:04"), i, progress[1], progress[2])
 			workers <- struct{}{}
 			wg.Done()
-		}(i, file)
+		}(i)
+
+		err = os.Remove(WORKER_PROGRESS_DIR + "/" + file.Name())
+		if err != nil {
+			log.Fatal("Error removing file: ", err)
+		}
 
 		i++
 	}
