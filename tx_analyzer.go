@@ -266,6 +266,7 @@ func doLiveAnalysis(height int) {
 			if err != nil {
 				log.Fatal("Error with getblockcount RPC: ", err)
 			}
+			workers <- struct{}{}
 		} else {
 			go func(blockHeight int64) {
 				analyzeBlockLive(blockHeight)
