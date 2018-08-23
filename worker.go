@@ -8,6 +8,7 @@ import (
 	"github.com/go-pg/pg/orm"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -118,8 +119,18 @@ func (worker *Worker) insert(stats BlockStats) bool {
 		DashboardDataRow: stats.transformToDashboardData(),
 	}
 
+	return worker.insertData(data)
+}
+
+func (worker *Worker) insertData(data Data) bool {
 	err := worker.pgClient.Insert(&data.DashboardDataRow)
 	if err != nil {
+		// Skip duplicate values.
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			log.Println("Skipping duplicate key at height: ", data.DashboardDataRow.Height)
+			return true
+		}
+
 		log.Fatal("PG database insert failed! ", err)
 	}
 
@@ -143,6 +154,15 @@ func (worker *Worker) batchInsert(stats BlockStats) {
 func (worker *Worker) commitBatchInsert() bool {
 	err := worker.pgClient.Insert(&worker.pgBatch.dashboardDataRows)
 	if err != nil {
+		// Skip duplicate values.
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			log.Println("Skipping duplicate key in batch")
+			for _, row := range worker.pgBatch.dashboardDataRows {
+				worker.insertData(Data{CURRENT_VERSION_NUMBER, row})
+			}
+			return true
+		}
+
 		log.Fatal("PG Commit Batch insert failed! ", err)
 	}
 
