@@ -10,6 +10,8 @@ The program logs all statistics from getblockstats, and some statistics derived 
 
 The exact statistics tracked are those set in the struct definition for `DashboardData` in `type_and_helpers.go`
 
+An example JSON file with an explanation of the statistics stored is [STATS_TRACKED.md](STATS_TRACKED.md)
+
 ## Requirements
 Uses `expand-getblockstats` branch of https://github.com/bitcoinops/bitcoin with extended getblockstats RPC.
 Uses `dashboard-rpc` branch of https://github.com/bitcoinops/btcd for RPC client that can use the extended getblockstats RPC.
