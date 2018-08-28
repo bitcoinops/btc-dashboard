@@ -10,10 +10,10 @@ import (
 )
 
 var N_WORKERS int
-var DB_USED string
 var BACKUP_JSON bool
 var JSON_DIR string
 var WORKER_PROGRESS_DIR string
+var MIN_DIST_FROM_TIP int64
 
 const SHOW_QUERIES = false
 const JSON_DIR_RELATIVE = "/db-backup"
@@ -21,12 +21,13 @@ const WORKER_PROGRESS_DIR_RELATIVE = "/worker-progress"
 
 const N_WORKERS_DEFAULT = 2
 const DB_WAIT_TIME = 30
-const MIN_DIST_FROM_TIP = 6
 const MAX_ATTEMPTS = 3 // max number of DB write attempts before giving up
+const DEFAULT_DIST_FROM_TIP = 6
 
 const CURRENT_VERSION_NUMBER = 2
 
 func main() {
+	tipDistPtr := flag.Int64("tipdist", DEFAULT_DIST_FROM_TIP, "Number of blocks behind tip (during live analysis).")
 	nWorkersPtr := flag.Int("workers", N_WORKERS_DEFAULT, "Number of concurrent workers.")
 	startPtr := flag.Int("start", 0, "Starting blockheight.")
 	endPtr := flag.Int("end", -1, "Last blockheight to analyze.")
@@ -42,6 +43,7 @@ func main() {
 	// Set global variables
 	N_WORKERS = *nWorkersPtr
 	BACKUP_JSON = *jsonPtr
+	MIN_DIST_FROM_TIP = *tipDistPtr
 
 	currentDir, err := os.Getwd()
 	if err != nil {
