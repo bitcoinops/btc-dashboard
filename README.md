@@ -58,6 +58,7 @@ Assumes previously mentioned environment variables are set, and correctly corres
 
 * `-update` Set to true to update a column/add a table. Requires code change in add_column.go to go along with new table/column. Updates by reading the JSON backups and overwriting them.
 
+* `-email` Setting this flag enables the program to send emails in case of failure (i.e. places where `log.Fatal` is called). Requires `EMAIL_ADDR` and `EMAIL_PASSWORD` to be set for sending email account, and `RECIPIENT_EMAILS` (comma-separated list of email addresses) for all recipients.
 
 Setting the `-workers=N` flag will cause the program to start `N` different RPC clients to do its work. The default value is 2.
 

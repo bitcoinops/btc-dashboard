@@ -31,7 +31,7 @@ func setupWorker(startTime string, id int) Worker {
 	// Create file to record progress in.
 	workFile, err := os.Create(workFileName)
 	if err != nil {
-		log.Fatal("Error setting up workfile: ", err)
+		fatal("Error setting up workfile: ", err)
 	}
 
 	BITCOIND_HOST, ok := os.LookupEnv("BITCOIND_HOST")
@@ -52,7 +52,7 @@ func setupWorker(startTime string, id int) Worker {
 	// not supported in HTTP POST mode.
 	client, err := rpcclient.New(connCfg, nil)
 	if err != nil {
-		log.Fatal("Error connecting to bitcoin rpcclient", err)
+		fatal("Error connecting to bitcoin rpcclient", err)
 	}
 
 	DB_ADDR, ok := os.LookupEnv("DB_ADDR")
@@ -73,7 +73,7 @@ func setupWorker(startTime string, id int) Worker {
 		IfNotExists: true,
 	})
 	if err != nil {
-		log.Fatal("Error creating Postgres table: ", err)
+		fatal("Error creating Postgres table: ", err)
 	}
 
 	// Prints out the queries created by go-pg.
@@ -81,7 +81,7 @@ func setupWorker(startTime string, id int) Worker {
 		db.OnQueryProcessed(func(event *pg.QueryProcessedEvent) {
 			query, err := event.FormattedQuery()
 			if err != nil {
-				log.Fatal("Error formatting processed query: ", err)
+				fatal("Error formatting processed query: ", err)
 			}
 
 			log.Printf("%s %s", time.Since(event.StartTime), query)
@@ -131,7 +131,7 @@ func (worker *Worker) insertData(data Data) bool {
 			return true
 		}
 
-		log.Fatal("PG database insert failed! ", err)
+		fatal("PG database insert failed! ", err)
 	}
 
 	log.Printf("\n\n STORED INTO POSTGRESQL \n\n")
@@ -163,7 +163,7 @@ func (worker *Worker) commitBatchInsert() bool {
 			return true
 		}
 
-		log.Fatal("PG Commit Batch insert failed! ", err)
+		fatal("PG Commit Batch insert failed! ", err)
 	}
 
 	log.Printf("\n\n STORED INTO POSTGRESQL \n\n")

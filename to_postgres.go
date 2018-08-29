@@ -40,7 +40,7 @@ func toPostgres() {
 		IfNotExists: true,
 	})
 	if err != nil {
-		log.Fatal("Error creating table: ", err)
+		fatal("Error creating table: ", err)
 	}
 
 	if _, err := os.Stat(JSON_DIR); os.IsNotExist(err) {
@@ -49,13 +49,13 @@ func toPostgres() {
 
 	files, err := ioutil.ReadDir(JSON_DIR)
 	if err != nil {
-		log.Fatal("Error reading directory", err)
+		fatal("Error reading directory", err)
 	}
 
 	for i, fileInfo := range files {
 		file, err := os.Open(JSON_DIR + "/" + fileInfo.Name())
 		if err != nil {
-			log.Fatal(i, err, fileInfo.Name())
+			fatal(i, err, fileInfo.Name())
 		}
 
 		dec := json.NewDecoder(file)
@@ -63,14 +63,14 @@ func toPostgres() {
 
 		err = dec.Decode(&data)
 		if err != nil {
-			log.Fatal("JSON decoding error: ", err, fileInfo.Name())
+			fatal("JSON decoding error: ", err, fileInfo.Name())
 		}
 
 		file.Close()
 
 		err = db.Insert(&data.DashboardDataRow)
 		if err != nil {
-			log.Fatal("Error inserting into db: ", err)
+			fatal("Error inserting into db: ", err)
 		}
 
 		log.Println("Done with file: ", fileInfo.Name())

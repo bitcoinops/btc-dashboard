@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -162,12 +161,12 @@ func liveMempoolAnalysis() {
 
 			rawMempool, err := worker.client.GetRawMempoolVerbose()
 			if err != nil {
-				log.Fatal(err)
+				fatal(err)
 			}
 
 			mpInfo, err := worker.client.GetMempoolInfo()
 			if err != nil {
-				log.Fatal(err)
+				fatal(err)
 			}
 
 			nextData := getMempoolData(mpInfo, currentTime)
@@ -178,7 +177,7 @@ func liveMempoolAnalysis() {
 
 			err = worker.pgClient.Insert(&mempoolData)
 			if err != nil {
-				log.Fatal("PG database insert failed! ", err)
+				fatal("PG database insert failed! ", err)
 			}
 
 		case <-sigs:
@@ -207,7 +206,7 @@ func setupMempoolAnalysis() MempoolDataWorker {
 	// not supported in HTTP POST mode.
 	client, err := rpcclient.New(connCfg, nil)
 	if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	}
 
 	DB_ADDR, ok := os.LookupEnv("DB_ADDR")
@@ -228,7 +227,7 @@ func setupMempoolAnalysis() MempoolDataWorker {
 		IfNotExists: true,
 	})
 	if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	}
 
 	// Prints out the queries created by go-pg.
@@ -236,7 +235,7 @@ func setupMempoolAnalysis() MempoolDataWorker {
 		db.OnQueryProcessed(func(event *pg.QueryProcessedEvent) {
 			query, err := event.FormattedQuery()
 			if err != nil {
-				log.Fatal(err)
+				fatal(err)
 			}
 
 			log.Printf("%s %s", time.Since(event.StartTime), query)
@@ -254,39 +253,4 @@ func setupMempoolAnalysis() MempoolDataWorker {
 func (worker *MempoolDataWorker) shutdown() {
 	worker.client.Shutdown()
 	worker.pgClient.Close()
-}
-
-// printQueries prints out the body of Postgres queries used in Grafana, not including repeated parts.
-// Can be easily modified to print time averages or moving averages for each entry in each array
-func printQueries() {
-	fmt.Printf("Size per bucket query: \n\n")
-	for i := 0; i < NUM_FEE_BUCKETS-1; i++ {
-		fmt.Printf("\"size_per_fee_bucket\"[%v] AS \"Num Txs with feerate: %v to %v sats/vbyte\",\n", i+1, FEE_BUCKET_VALUES[i], FEE_BUCKET_VALUES[i+1])
-	}
-
-	fmt.Printf("\nBytes per bucket query: \n\n")
-	for i := 0; i < NUM_FEE_BUCKETS-1; i++ {
-		fmt.Printf("\"bytes_per_fee_bucket\"[%v] AS \"Total vbytes of all txs with feerate: %v to %v sats/vbyte\",\n", i+1, FEE_BUCKET_VALUES[i], FEE_BUCKET_VALUES[i+1])
-	}
-
-	fmt.Printf("\nTotal fee per bucket query: \n\n")
-	for i := 0; i < NUM_FEE_BUCKETS-1; i++ {
-		fmt.Printf("\"total_fee_per_fee_bucket\"[%v] AS \"Sum of fees of txs with feerate: %v to %v sats/vbyte\",\n", i+1, FEE_BUCKET_VALUES[i], FEE_BUCKET_VALUES[i+1])
-	}
-
-	fmt.Printf("Size diff per bucket query: \n\n")
-	for i := 0; i < NUM_FEE_BUCKETS-1; i++ {
-		fmt.Printf("\"size_per_fee_bucket_diff\"[%v] AS \"Change in num txs with feerate: %v to %v sats/vbyte\",\n", i+1, FEE_BUCKET_VALUES[i], FEE_BUCKET_VALUES[i+1])
-	}
-
-	fmt.Printf("\nBytes diff per bucket query: \n\n")
-	for i := 0; i < NUM_FEE_BUCKETS-1; i++ {
-		fmt.Printf("\"bytes_per_fee_bucket_diff\"[%v] AS \"Change in total vbytes of all txs with feerate: %v to %v sats/vbyte\",\n", i+1, FEE_BUCKET_VALUES[i], FEE_BUCKET_VALUES[i+1])
-	}
-
-	fmt.Printf("\nTotal fee diff per bucket query: \n\n")
-	for i := 0; i < NUM_FEE_BUCKETS-1; i++ {
-		fmt.Printf("\"total_fee_per_fee_bucket_diff\"[%v] AS \"Change in sum of fees of txs with feerate: %v to %v sats/vbyte\",\n", i+1, FEE_BUCKET_VALUES[i], FEE_BUCKET_VALUES[i+1])
-	}
-
 }

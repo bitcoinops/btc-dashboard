@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	gomail "gopkg.in/mail.v2"
 )
 
 func storeDataAsFile(data Data) {
@@ -36,7 +38,7 @@ func parseProgress(contents string) []int {
 		}
 		height, err := strconv.Atoi(split[1])
 		if err != nil {
-			log.Fatal("Error in parseProgress, strconv parsing: ", err)
+			fatal("Error in parseProgress, strconv parsing: ", err)
 		}
 
 		result = append(result, height)
@@ -52,7 +54,7 @@ func logProgressToFile(start, last, end int, file *os.File) {
 	_, err := file.WriteAt([]byte(progress), 0)
 
 	if err != nil {
-		log.Fatal("Error logging progress: ", err)
+		fatal("Error logging progress: ", err)
 	}
 }
 
@@ -62,7 +64,49 @@ func createDirIfNotExist(dirPath string) {
 		log.Printf("Creating worker progress directory at: %v\n", dirPath)
 		err := os.Mkdir(dirPath, 0777)
 		if err != nil {
-			log.Fatal(err)
+			fatal(err)
 		}
 	}
+}
+
+// printQueries prints out the body of Postgres queries used in Grafana, not including repeated parts.
+// Can be easily modified to print time averages or moving averages for each entry in each array
+func printQueries() {
+	fmt.Printf("Size per bucket query: \n\n")
+	for i := 0; i < NUM_FEE_BUCKETS-1; i++ {
+		fmt.Printf("\"size_per_fee_bucket\"[%v] AS \"Num Txs with feerate: %v to %v sats/vbyte\",\n", i+1, FEE_BUCKET_VALUES[i], FEE_BUCKET_VALUES[i+1])
+	}
+}
+
+// email sends an email to the recipient email with the recipient name, subject,
+// and body.
+func email(subject, body string) error {
+	recipientEmails := os.Getenv("RECIPIENT_EMAILS")
+	emailAddr := os.Getenv("EMAIL_ADDR")
+	emailPw := os.Getenv("EMAIL_PASSWORD")
+	log.Println(emailAddr, emailPw, recipientEmails)
+	s, err := gomail.NewDialer("smtp.gmail.com", 587, emailAddr, emailPw).Dial()
+	if err != nil {
+		return err
+	}
+
+	emails := strings.Split(recipientEmails, ",")
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", emailAddr)
+	m.SetHeader("To", emails...)
+	m.SetHeader("Subject", subject)
+	m.SetBody("text/plain", body)
+	return gomail.Send(s, m)
+}
+
+// wrapper over log.Fatal to do other things before exit.
+func fatal(v ...interface{}) {
+	if SEND_EMAIL {
+		body := fmt.Sprint(v...)
+		email("Dashboard Process Failed", body)
+	}
+
+	log.Fatal("Shutdown caused by fatal error: ", v)
+
 }

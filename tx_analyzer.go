@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+var SEND_EMAIL bool
 var N_WORKERS int
 var BACKUP_JSON bool
 var JSON_DIR string
@@ -27,6 +28,7 @@ const DEFAULT_DIST_FROM_TIP = 6
 const CURRENT_VERSION_NUMBER = 2
 
 func main() {
+	sendEmailPtr := flag.Bool("email", false, "Set to true to send email upon failure. \n(Need to set additional environment variables, RECIPIENT_EMAILS should be a comma-separated list of recipient emails, \n EMAIL_ADDR, EMAIL_PASSWORD for sending address must also be set)")
 	tipDistPtr := flag.Int64("tipdist", DEFAULT_DIST_FROM_TIP, "Number of blocks behind tip (during live analysis).")
 	nWorkersPtr := flag.Int("workers", N_WORKERS_DEFAULT, "Number of concurrent workers.")
 	startPtr := flag.Int("start", 0, "Starting blockheight.")
@@ -44,6 +46,7 @@ func main() {
 	N_WORKERS = *nWorkersPtr
 	BACKUP_JSON = *jsonPtr
 	MIN_DIST_FROM_TIP = *tipDistPtr
+	SEND_EMAIL = *sendEmailPtr
 
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -60,6 +63,16 @@ func main() {
 	WORKER_PROGRESS_DIR = currentDir + WORKER_PROGRESS_DIR_RELATIVE
 	if _, err := os.Stat(WORKER_PROGRESS_DIR); os.IsNotExist(err) {
 		createDirIfNotExist(WORKER_PROGRESS_DIR)
+	}
+
+	if SEND_EMAIL {
+		_, ok1 := os.LookupEnv("RECIPIENT_EMAILS")
+		_, ok2 := os.LookupEnv("EMAIL_ADDR")
+		_, ok3 := os.LookupEnv("EMAIL_PASSWORD")
+
+		if !(ok1 && ok2 && ok3) {
+			log.Fatal("-email option requires environment variables: RECIPIENT_EMAIL, EMAIL_ADDR, EMAIL_PASSWORD to be set!")
+		}
 	}
 
 	if *mempoolPtr {
@@ -158,7 +171,7 @@ func (worker *Worker) analyzeBlock(blockHeight int64) {
 	// Use getblockstats RPC and merge results into the metrics struct.
 	blockStatsRes, err := worker.client.GetBlockStats(blockHeight, nil)
 	if err != nil {
-		log.Fatal("Error with getblockstats RPC: ", err)
+		fatal("Error with getblockstats RPC: ", err)
 	}
 
 	blockStats := BlockStats{blockStatsRes}
@@ -173,7 +186,7 @@ func recoverFromFailure() {
 
 	files, err := ioutil.ReadDir(WORKER_PROGRESS_DIR)
 	if err != nil {
-		log.Fatal("Error reading worker_progress directory: ", err)
+		fatal("Error reading worker_progress directory: ", err)
 	}
 
 	var wg sync.WaitGroup
@@ -203,7 +216,7 @@ func recoverFromFailure() {
 		file := progressFiles[i]
 		contentsBytes, err := ioutil.ReadFile(WORKER_PROGRESS_DIR + "/" + file.Name())
 		if err != nil {
-			log.Fatal("Error reading wp file: ", err)
+			fatal("Error reading wp file: ", err)
 		}
 		contents := string(contentsBytes)
 		progress := parseProgress(contents)
@@ -216,7 +229,7 @@ func recoverFromFailure() {
 
 		err = os.Remove(WORKER_PROGRESS_DIR + "/" + file.Name())
 		if err != nil {
-			log.Fatal("Error removing file: ", err)
+			fatal("Error removing file: ", err)
 		}
 
 		i++
@@ -237,7 +250,7 @@ func doLiveAnalysis(height int) {
 
 	blockCount, err := worker.client.GetBlockCount()
 	if err != nil {
-		log.Fatal("Error with getblockcount RPC: ", err)
+		fatal("Error with getblockcount RPC: ", err)
 	}
 
 	var lastAnalysisStarted int64
@@ -266,7 +279,7 @@ func doLiveAnalysis(height int) {
 			time.Sleep(500 * time.Millisecond)
 			blockCount, err = worker.client.GetBlockCount()
 			if err != nil {
-				log.Fatal("Error with getblockcount RPC: ", err)
+				fatal("Error with getblockcount RPC: ", err)
 			}
 			workers <- struct{}{}
 		} else {
@@ -296,7 +309,7 @@ func analyzeBlockLive(blockHeight int64) {
 	// Use getblockstats RPC and merge results into the metrics struct.
 	blockStatsRes, err := worker.client.GetBlockStats(blockHeight, nil)
 	if err != nil {
-		log.Fatal("Error with getblockstats RPC: ", err)
+		fatal("Error with getblockstats RPC: ", err)
 	}
 	blockStats := BlockStats{blockStatsRes}
 
