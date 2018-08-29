@@ -10,8 +10,6 @@ import (
 	"github.com/go-pg/pg/orm"
 )
 
-// TODO: fix this to get read Data instead of DashboardData
-
 /*
 toPostgres() goes through all json files in db-dump,
 decodes the file to a their corresponding struct(s), and then inserts them into postgresql tables

@@ -36,7 +36,6 @@ func main() {
 
 	// Flags for different modes of operation. Default is to live analysis/back-filling.
 	mempoolPtr := flag.Bool("mempool", false, "Set to true to start a mempool analysis")
-	updateColPtr := flag.Bool("update", false, "Set to true to add a column (you need to change bits of code first)")
 	insertPtr := flag.Bool("insert-json", false, "Set to true to insert .json data files into PostgreSQL")
 	recoveryFlagPtr := flag.Bool("recovery", false, "Set to true to start workers on files in ./worker-progress")
 	jsonPtr := flag.Bool("json", true, "Set to false to stop json logging in /db-backup")
@@ -77,11 +76,6 @@ func main() {
 
 	if *mempoolPtr {
 		liveMempoolAnalysis()
-		return
-	}
-
-	if *updateColPtr {
-		addColumn()
 		return
 	}
 
