@@ -4,7 +4,8 @@ Stats are stored in a Postgres database and as JSON files.
 
 Additionally, tracks mempool stats using `getmempoolinfo` and `getrawmempool` RPCs.
 
-The dashboard is publicly available at: TODO: url
+The dashboard is publicly available at [dashboard.bitcoinops.org](https://dashboard.bitcoinops.org).
+
 ## Stats Tracked
 The program logs all statistics from getblockstats, and some statistics derived from these (e.g. percentage of transactions that have quality X).
 
