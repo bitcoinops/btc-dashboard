@@ -1,0 +1,92 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": 11,
+  "links": [],
+  "panels": [
+    {
+      "content": "# Bitcoin Optech Dashboards",
+      "gridPos": {
+        "h": 2,
+        "w": 9,
+        "x": 0,
+        "y": 0
+      },
+      "id": 4,
+      "links": [],
+      "mode": "markdown",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "folderId": 0,
+      "gridPos": {
+        "h": 15,
+        "w": 12,
+        "x": 5,
+        "y": 2
+      },
+      "headings": false,
+      "id": 2,
+      "limit": 20,
+      "links": [],
+      "query": "",
+      "recent": false,
+      "search": true,
+      "starred": false,
+      "tags": [],
+      "title": "",
+      "transparent": true,
+      "type": "dashlist"
+    }
+  ],
+  "schemaVersion": 16,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-12h",
+    "to": "now-5m"
+  },
+  "timepicker": {
+    "nowDelay": "5m",
+    "refresh_intervals": [
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d",
+      "30d"
+    ]
+  },
+  "timezone": "",
+  "title": "Bitcoin Optech Dashboards",
+  "uid": "TDhboADmk",
+  "version": 14
+}

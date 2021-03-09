@@ -1,0 +1,1458 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": 18,
+  "links": [],
+  "panels": [
+    {
+      "aliasColors": {
+        "Transaction count": "#6ed0e0"
+      },
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "dashboard",
+      "fill": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 2,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "",
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__time(\"time\"), \n  \"size\"  AS \"Transaction count\"\nFROM  mempool_data\nWHERE\n  $__unixEpochFilter(\"time\")\nORDER BY time\n\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Number of transactions in mempool",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "none",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {
+        "Transaction diff": "#65c5db"
+      },
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "dashboard",
+      "fill": 1,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 5,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "",
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__time(\"time\"), \n  \"size_diff\"  AS \"Transaction diff\"\nFROM  mempool_data\nWHERE\n  $__unixEpochFilter(\"time\")\nORDER BY time\n\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Change in number of transactions in mempool",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "none",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {
+        "vbytes": "#ef843c"
+      },
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "dashboard",
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 3,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "",
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__time(\"time\"), \n  \"bytes\"  AS \"vbytes\"\nFROM  mempool_data\nWHERE\n  $__unixEpochFilter(\"time\")\nORDER BY time\n\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Sum of all virtual transaction sizes of txs in mempool",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "bytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {
+        "vbytes_diff": "#ef843c"
+      },
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "dashboard",
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "id": 6,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "",
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__time(\"time\"), \n  \"bytes_diff\"  AS \"vbytes_diff\"\nFROM  mempool_data\nWHERE\n  $__unixEpochFilter(\"time\")\nORDER BY time\n\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Change in sum of all virtual transaction sizes of txs in mempool",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "bytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "dashboard",
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "id": 4,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "",
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__time(\"time\"), \n  \"mempool_min_fee\" AS \"Mempool min fee\"\nFROM  mempool_data\nWHERE\n  $__unixEpochFilter(\"time\")\nORDER BY time\n\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Mempool Min Fee",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "dashboard",
+      "fill": 1,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 43
+      },
+      "id": 11,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "",
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__time(\"time\"), \n  \"mempool_min_fee_diff\" AS \"Change in mempool min fee\"\nFROM  mempool_data\nWHERE\n  $__unixEpochFilter(\"time\")\nORDER BY time\n\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Change in Mempool Min Fee",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {
+        "0.0001 to 1": "#052b51",
+        "1 to 2": "#0a50a1",
+        "10 to 12": "#508642",
+        "12 to 14": "#9ac48a",
+        "14 to 17": "#629e51",
+        "17 to 20": "#7eb26d",
+        "2 to 3": "#0a437c",
+        "20 to 25": "#b7dbab",
+        "3 to 4": "#447ebc",
+        "4 to 5": "#64b0c8",
+        "5 to 6": "#70dbed",
+        "6 to 7": "#70dbed",
+        "7 to 8": "#aea2e0",
+        "8 to 10": "#3f6833"
+      },
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "dashboard",
+      "fill": 4,
+      "gridPos": {
+        "h": 18,
+        "w": 23,
+        "x": 0,
+        "y": 52
+      },
+      "id": 7,
+      "legend": {
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "hideEmpty": false,
+        "hideZero": true,
+        "max": true,
+        "min": true,
+        "rightSide": true,
+        "show": true,
+        "sortDesc": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "",
+          "format": "time_series",
+          "group": [],
+          "hide": false,
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__time(\"time\"), \n\"size_per_fee_bucket\"[1] AS \"Num Txs with feerate: 0.0001 to 1 sats/vbyte\",\n\"size_per_fee_bucket\"[2] AS \"Num Txs with feerate: 1 to 2 sats/vbyte\",\n\"size_per_fee_bucket\"[3] AS \"Num Txs with feerate: 2 to 3 sats/vbyte\",\n\"size_per_fee_bucket\"[4] AS \"Num Txs with feerate: 3 to 4 sats/vbyte\",\n\"size_per_fee_bucket\"[5] AS \"Num Txs with feerate: 4 to 5 sats/vbyte\",\n\"size_per_fee_bucket\"[6] AS \"Num Txs with feerate: 5 to 6 sats/vbyte\",\n\"size_per_fee_bucket\"[7] AS \"Num Txs with feerate: 6 to 7 sats/vbyte\",\n\"size_per_fee_bucket\"[8] AS \"Num Txs with feerate: 7 to 8 sats/vbyte\",\n\"size_per_fee_bucket\"[9] AS \"Num Txs with feerate: 8 to 10 sats/vbyte\",\n\"size_per_fee_bucket\"[10] AS \"Num Txs with feerate: 10 to 12 sats/vbyte\",\n\"size_per_fee_bucket\"[11] AS \"Num Txs with feerate: 12 to 14 sats/vbyte\",\n\"size_per_fee_bucket\"[12] AS \"Num Txs with feerate: 14 to 17 sats/vbyte\",\n\"size_per_fee_bucket\"[13] AS \"Num Txs with feerate: 17 to 20 sats/vbyte\",\n\"size_per_fee_bucket\"[14] AS \"Num Txs with feerate: 20 to 25 sats/vbyte\",\n\"size_per_fee_bucket\"[15] AS \"Num Txs with feerate: 25 to 30 sats/vbyte\",\n\"size_per_fee_bucket\"[16] AS \"Num Txs with feerate: 30 to 40 sats/vbyte\",\n\"size_per_fee_bucket\"[17] AS \"Num Txs with feerate: 40 to 50 sats/vbyte\",\n\"size_per_fee_bucket\"[18] AS \"Num Txs with feerate: 50 to 60 sats/vbyte\",\n\"size_per_fee_bucket\"[19] AS \"Num Txs with feerate: 60 to 70 sats/vbyte\",\n\"size_per_fee_bucket\"[20] AS \"Num Txs with feerate: 70 to 80 sats/vbyte\",\n\"size_per_fee_bucket\"[21] AS \"Num Txs with feerate: 80 to 100 sats/vbyte\",\n\"size_per_fee_bucket\"[22] AS \"Num Txs with feerate: 100 to 120 sats/vbyte\",\n\"size_per_fee_bucket\"[23] AS \"Num Txs with feerate: 120 to 140 sats/vbyte\",\n\"size_per_fee_bucket\"[24] AS \"Num Txs with feerate: 140 to 170 sats/vbyte\",\n\"size_per_fee_bucket\"[25] AS \"Num Txs with feerate: 170 to 200 sats/vbyte\",\n\"size_per_fee_bucket\"[26] AS \"Num Txs with feerate: 200 to 250 sats/vbyte\",\n\"size_per_fee_bucket\"[27] AS \"Num Txs with feerate: 250 to 300 sats/vbyte\",\n\"size_per_fee_bucket\"[28] AS \"Num Txs with feerate: 300 to 400 sats/vbyte\",\n\"size_per_fee_bucket\"[29] AS \"Num Txs with feerate: 400 to 500 sats/vbyte\",\n\"size_per_fee_bucket\"[30] AS \"Num Txs with feerate: 500 to 600 sats/vbyte\",\n\"size_per_fee_bucket\"[31] AS \"Num Txs with feerate: 600 to 700 sats/vbyte\",\n\"size_per_fee_bucket\"[32] AS \"Num Txs with feerate: 700 to 800 sats/vbyte\",\n\"size_per_fee_bucket\"[33] AS \"Num Txs with feerate: 800 to 1000 sats/vbyte\",\n\"size_per_fee_bucket\"[34] AS \"Num Txs with feerate: 1000 to 1200 sats/vbyte\",\n\"size_per_fee_bucket\"[35] AS \"Num Txs with feerate: 1200 to 1400 sats/vbyte\",\n\"size_per_fee_bucket\"[36] AS \"Num Txs with feerate: 1400 to 1700 sats/vbyte\",\n\"size_per_fee_bucket\"[37] AS \"Num Txs with feerate: 1700 to 2000 sats/vbyte\",\n\"size_per_fee_bucket\"[38] AS \"Num Txs with feerate: 2000 to 2500 sats/vbyte\",\n\"size_per_fee_bucket\"[39] AS \"Num Txs with feerate: 2500 to 3000 sats/vbyte\",\n\"size_per_fee_bucket\"[40] AS \"Num Txs with feerate: 3000 to 4000 sats/vbyte\",\n\"size_per_fee_bucket\"[41] AS \"Num Txs with feerate: 4000 to 5000 sats/vbyte\",\n\"size_per_fee_bucket\"[42] AS \"Num Txs with feerate: 5000 to 6000 sats/vbyte\",\n\"size_per_fee_bucket\"[43] AS \"Num Txs with feerate: 6000 to 7000 sats/vbyte\",\n\"size_per_fee_bucket\"[44] AS \"Num Txs with feerate: 7000 to 8000 sats/vbyte\",\n\"size_per_fee_bucket\"[45] AS \"Num Txs with feerate: 8000 to 10000 sats/vbyte\",\n\"size_per_fee_bucket\"[46] AS \"Num Txs with feerate: 10000 to 2.1e+15 sats/vbyte\"\nFROM  mempool_data\nWHERE\n  $__unixEpochFilter(\"time\")\nORDER BY time\n\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Number of transactions by feerate",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {
+        "0.0001 to 1": "#052b51",
+        "1 to 2": "#0a50a1",
+        "10 to 12": "#508642",
+        "12 to 14": "#9ac48a",
+        "14 to 17": "#629e51",
+        "17 to 20": "#7eb26d",
+        "2 to 3": "#0a437c",
+        "20 to 25": "#b7dbab",
+        "3 to 4": "#447ebc",
+        "4 to 5": "#64b0c8",
+        "5 to 6": "#70dbed",
+        "6 to 7": "#70dbed",
+        "7 to 8": "#aea2e0",
+        "8 to 10": "#3f6833"
+      },
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "dashboard",
+      "fill": 4,
+      "gridPos": {
+        "h": 18,
+        "w": 23,
+        "x": 0,
+        "y": 70
+      },
+      "id": 10,
+      "legend": {
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "hideEmpty": false,
+        "hideZero": true,
+        "max": true,
+        "min": true,
+        "rightSide": true,
+        "show": true,
+        "sortDesc": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "",
+          "format": "time_series",
+          "group": [],
+          "hide": false,
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__time(\"time\"), \n\"size_per_fee_bucket_diff\"[1] AS \"Change in num txs with feerate: 0.0001 to 1 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[2] AS \"Change in num txs with feerate: 1 to 2 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[3] AS \"Change in num txs with feerate: 2 to 3 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[4] AS \"Change in num txs with feerate: 3 to 4 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[5] AS \"Change in num txs with feerate: 4 to 5 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[6] AS \"Change in num txs with feerate: 5 to 6 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[7] AS \"Change in num txs with feerate: 6 to 7 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[8] AS \"Change in num txs with feerate: 7 to 8 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[9] AS \"Change in num txs with feerate: 8 to 10 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[10] AS \"Change in num txs with feerate: 10 to 12 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[11] AS \"Change in num txs with feerate: 12 to 14 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[12] AS \"Change in num txs with feerate: 14 to 17 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[13] AS \"Change in num txs with feerate: 17 to 20 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[14] AS \"Change in num txs with feerate: 20 to 25 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[15] AS \"Change in num txs with feerate: 25 to 30 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[16] AS \"Change in num txs with feerate: 30 to 40 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[17] AS \"Change in num txs with feerate: 40 to 50 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[18] AS \"Change in num txs with feerate: 50 to 60 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[19] AS \"Change in num txs with feerate: 60 to 70 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[20] AS \"Change in num txs with feerate: 70 to 80 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[21] AS \"Change in num txs with feerate: 80 to 100 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[22] AS \"Change in num txs with feerate: 100 to 120 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[23] AS \"Change in num txs with feerate: 120 to 140 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[24] AS \"Change in num txs with feerate: 140 to 170 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[25] AS \"Change in num txs with feerate: 170 to 200 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[26] AS \"Change in num txs with feerate: 200 to 250 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[27] AS \"Change in num txs with feerate: 250 to 300 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[28] AS \"Change in num txs with feerate: 300 to 400 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[29] AS \"Change in num txs with feerate: 400 to 500 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[30] AS \"Change in num txs with feerate: 500 to 600 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[31] AS \"Change in num txs with feerate: 600 to 700 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[32] AS \"Change in num txs with feerate: 700 to 800 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[33] AS \"Change in num txs with feerate: 800 to 1000 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[34] AS \"Change in num txs with feerate: 1000 to 1200 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[35] AS \"Change in num txs with feerate: 1200 to 1400 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[36] AS \"Change in num txs with feerate: 1400 to 1700 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[37] AS \"Change in num txs with feerate: 1700 to 2000 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[38] AS \"Change in num txs with feerate: 2000 to 2500 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[39] AS \"Change in num txs with feerate: 2500 to 3000 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[40] AS \"Change in num txs with feerate: 3000 to 4000 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[41] AS \"Change in num txs with feerate: 4000 to 5000 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[42] AS \"Change in num txs with feerate: 5000 to 6000 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[43] AS \"Change in num txs with feerate: 6000 to 7000 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[44] AS \"Change in num txs with feerate: 7000 to 8000 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[45] AS \"Change in num txs with feerate: 8000 to 10000 sats/vbyte\",\n\"size_per_fee_bucket_diff\"[46] AS \"Change in num txs with feerate: 10000 to 2.1e+15 sats/vbyte\"\nFROM  mempool_data\nWHERE\n  $__unixEpochFilter(\"time\")\nORDER BY time\n\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Change in number of transactions by feerate",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {
+        "0.0001 to 1": "#052b51",
+        "1 to 2": "#0a50a1",
+        "10 to 12": "#508642",
+        "12 to 14": "#9ac48a",
+        "14 to 17": "#629e51",
+        "17 to 20": "#7eb26d",
+        "2 to 3": "#0a437c",
+        "20 to 25": "#b7dbab",
+        "3 to 4": "#447ebc",
+        "4 to 5": "#64b0c8",
+        "5 to 6": "#70dbed",
+        "6 to 7": "#70dbed",
+        "7 to 8": "#aea2e0",
+        "8 to 10": "#3f6833"
+      },
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "dashboard",
+      "fill": 4,
+      "gridPos": {
+        "h": 18,
+        "w": 23,
+        "x": 0,
+        "y": 88
+      },
+      "id": 8,
+      "legend": {
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "hideEmpty": false,
+        "hideZero": true,
+        "max": true,
+        "min": true,
+        "rightSide": true,
+        "show": true,
+        "sortDesc": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "",
+          "format": "time_series",
+          "group": [],
+          "hide": false,
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__time(\"time\"), \n\n\"bytes_per_fee_bucket\"[1] AS \"Total vbytes of all txs with feerate: 0.0001 to 1 sats/vbyte\",\n\"bytes_per_fee_bucket\"[2] AS \"Total vbytes of all txs with feerate: 1 to 2 sats/vbyte\",\n\"bytes_per_fee_bucket\"[3] AS \"Total vbytes of all txs with feerate: 2 to 3 sats/vbyte\",\n\"bytes_per_fee_bucket\"[4] AS \"Total vbytes of all txs with feerate: 3 to 4 sats/vbyte\",\n\"bytes_per_fee_bucket\"[5] AS \"Total vbytes of all txs with feerate: 4 to 5 sats/vbyte\",\n\"bytes_per_fee_bucket\"[6] AS \"Total vbytes of all txs with feerate: 5 to 6 sats/vbyte\",\n\"bytes_per_fee_bucket\"[7] AS \"Total vbytes of all txs with feerate: 6 to 7 sats/vbyte\",\n\"bytes_per_fee_bucket\"[8] AS \"Total vbytes of all txs with feerate: 7 to 8 sats/vbyte\",\n\"bytes_per_fee_bucket\"[9] AS \"Total vbytes of all txs with feerate: 8 to 10 sats/vbyte\",\n\"bytes_per_fee_bucket\"[10] AS \"Total vbytes of all txs with feerate: 10 to 12 sats/vbyte\",\n\"bytes_per_fee_bucket\"[11] AS \"Total vbytes of all txs with feerate: 12 to 14 sats/vbyte\",\n\"bytes_per_fee_bucket\"[12] AS \"Total vbytes of all txs with feerate: 14 to 17 sats/vbyte\",\n\"bytes_per_fee_bucket\"[13] AS \"Total vbytes of all txs with feerate: 17 to 20 sats/vbyte\",\n\"bytes_per_fee_bucket\"[14] AS \"Total vbytes of all txs with feerate: 20 to 25 sats/vbyte\",\n\"bytes_per_fee_bucket\"[15] AS \"Total vbytes of all txs with feerate: 25 to 30 sats/vbyte\",\n\"bytes_per_fee_bucket\"[16] AS \"Total vbytes of all txs with feerate: 30 to 40 sats/vbyte\",\n\"bytes_per_fee_bucket\"[17] AS \"Total vbytes of all txs with feerate: 40 to 50 sats/vbyte\",\n\"bytes_per_fee_bucket\"[18] AS \"Total vbytes of all txs with feerate: 50 to 60 sats/vbyte\",\n\"bytes_per_fee_bucket\"[19] AS \"Total vbytes of all txs with feerate: 60 to 70 sats/vbyte\",\n\"bytes_per_fee_bucket\"[20] AS \"Total vbytes of all txs with feerate: 70 to 80 sats/vbyte\",\n\"bytes_per_fee_bucket\"[21] AS \"Total vbytes of all txs with feerate: 80 to 100 sats/vbyte\",\n\"bytes_per_fee_bucket\"[22] AS \"Total vbytes of all txs with feerate: 100 to 120 sats/vbyte\",\n\"bytes_per_fee_bucket\"[23] AS \"Total vbytes of all txs with feerate: 120 to 140 sats/vbyte\",\n\"bytes_per_fee_bucket\"[24] AS \"Total vbytes of all txs with feerate: 140 to 170 sats/vbyte\",\n\"bytes_per_fee_bucket\"[25] AS \"Total vbytes of all txs with feerate: 170 to 200 sats/vbyte\",\n\"bytes_per_fee_bucket\"[26] AS \"Total vbytes of all txs with feerate: 200 to 250 sats/vbyte\",\n\"bytes_per_fee_bucket\"[27] AS \"Total vbytes of all txs with feerate: 250 to 300 sats/vbyte\",\n\"bytes_per_fee_bucket\"[28] AS \"Total vbytes of all txs with feerate: 300 to 400 sats/vbyte\",\n\"bytes_per_fee_bucket\"[29] AS \"Total vbytes of all txs with feerate: 400 to 500 sats/vbyte\",\n\"bytes_per_fee_bucket\"[30] AS \"Total vbytes of all txs with feerate: 500 to 600 sats/vbyte\",\n\"bytes_per_fee_bucket\"[31] AS \"Total vbytes of all txs with feerate: 600 to 700 sats/vbyte\",\n\"bytes_per_fee_bucket\"[32] AS \"Total vbytes of all txs with feerate: 700 to 800 sats/vbyte\",\n\"bytes_per_fee_bucket\"[33] AS \"Total vbytes of all txs with feerate: 800 to 1000 sats/vbyte\",\n\"bytes_per_fee_bucket\"[34] AS \"Total vbytes of all txs with feerate: 1000 to 1200 sats/vbyte\",\n\"bytes_per_fee_bucket\"[35] AS \"Total vbytes of all txs with feerate: 1200 to 1400 sats/vbyte\",\n\"bytes_per_fee_bucket\"[36] AS \"Total vbytes of all txs with feerate: 1400 to 1700 sats/vbyte\",\n\"bytes_per_fee_bucket\"[37] AS \"Total vbytes of all txs with feerate: 1700 to 2000 sats/vbyte\",\n\"bytes_per_fee_bucket\"[38] AS \"Total vbytes of all txs with feerate: 2000 to 2500 sats/vbyte\",\n\"bytes_per_fee_bucket\"[39] AS \"Total vbytes of all txs with feerate: 2500 to 3000 sats/vbyte\",\n\"bytes_per_fee_bucket\"[40] AS \"Total vbytes of all txs with feerate: 3000 to 4000 sats/vbyte\",\n\"bytes_per_fee_bucket\"[41] AS \"Total vbytes of all txs with feerate: 4000 to 5000 sats/vbyte\",\n\"bytes_per_fee_bucket\"[42] AS \"Total vbytes of all txs with feerate: 5000 to 6000 sats/vbyte\",\n\"bytes_per_fee_bucket\"[43] AS \"Total vbytes of all txs with feerate: 6000 to 7000 sats/vbyte\",\n\"bytes_per_fee_bucket\"[44] AS \"Total vbytes of all txs with feerate: 7000 to 8000 sats/vbyte\",\n\"bytes_per_fee_bucket\"[45] AS \"Total vbytes of all txs with feerate: 8000 to 10000 sats/vbyte\",\n\"bytes_per_fee_bucket\"[46] AS \"Total vbytes of all txs with feerate: 10000 to 2.1e+15 sats/vbyte\"\nFROM  mempool_data\nWHERE\n  $__unixEpochFilter(\"time\")\nORDER BY time\n\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Total size (in vbytes) of transactions by feerate",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "decbytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {
+        "0.0001 to 1": "#052b51",
+        "1 to 2": "#0a50a1",
+        "10 to 12": "#508642",
+        "12 to 14": "#9ac48a",
+        "14 to 17": "#629e51",
+        "17 to 20": "#7eb26d",
+        "2 to 3": "#0a437c",
+        "20 to 25": "#b7dbab",
+        "3 to 4": "#447ebc",
+        "4 to 5": "#64b0c8",
+        "5 to 6": "#70dbed",
+        "6 to 7": "#70dbed",
+        "7 to 8": "#aea2e0",
+        "8 to 10": "#3f6833"
+      },
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "dashboard",
+      "fill": 4,
+      "gridPos": {
+        "h": 18,
+        "w": 23,
+        "x": 0,
+        "y": 106
+      },
+      "id": 12,
+      "legend": {
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "hideEmpty": false,
+        "hideZero": true,
+        "max": true,
+        "min": true,
+        "rightSide": true,
+        "show": true,
+        "sortDesc": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "",
+          "format": "time_series",
+          "group": [],
+          "hide": false,
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__time(\"time\"), \n\"bytes_per_fee_bucket_diff\"[1] AS \"Change in total vbytes of all txs with feerate: 0.0001 to 1 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[2] AS \"Change in total vbytes of all txs with feerate: 1 to 2 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[3] AS \"Change in total vbytes of all txs with feerate: 2 to 3 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[4] AS \"Change in total vbytes of all txs with feerate: 3 to 4 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[5] AS \"Change in total vbytes of all txs with feerate: 4 to 5 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[6] AS \"Change in total vbytes of all txs with feerate: 5 to 6 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[7] AS \"Change in total vbytes of all txs with feerate: 6 to 7 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[8] AS \"Change in total vbytes of all txs with feerate: 7 to 8 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[9] AS \"Change in total vbytes of all txs with feerate: 8 to 10 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[10] AS \"Change in total vbytes of all txs with feerate: 10 to 12 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[11] AS \"Change in total vbytes of all txs with feerate: 12 to 14 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[12] AS \"Change in total vbytes of all txs with feerate: 14 to 17 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[13] AS \"Change in total vbytes of all txs with feerate: 17 to 20 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[14] AS \"Change in total vbytes of all txs with feerate: 20 to 25 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[15] AS \"Change in total vbytes of all txs with feerate: 25 to 30 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[16] AS \"Change in total vbytes of all txs with feerate: 30 to 40 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[17] AS \"Change in total vbytes of all txs with feerate: 40 to 50 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[18] AS \"Change in total vbytes of all txs with feerate: 50 to 60 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[19] AS \"Change in total vbytes of all txs with feerate: 60 to 70 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[20] AS \"Change in total vbytes of all txs with feerate: 70 to 80 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[21] AS \"Change in total vbytes of all txs with feerate: 80 to 100 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[22] AS \"Change in total vbytes of all txs with feerate: 100 to 120 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[23] AS \"Change in total vbytes of all txs with feerate: 120 to 140 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[24] AS \"Change in total vbytes of all txs with feerate: 140 to 170 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[25] AS \"Change in total vbytes of all txs with feerate: 170 to 200 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[26] AS \"Change in total vbytes of all txs with feerate: 200 to 250 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[27] AS \"Change in total vbytes of all txs with feerate: 250 to 300 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[28] AS \"Change in total vbytes of all txs with feerate: 300 to 400 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[29] AS \"Change in total vbytes of all txs with feerate: 400 to 500 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[30] AS \"Change in total vbytes of all txs with feerate: 500 to 600 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[31] AS \"Change in total vbytes of all txs with feerate: 600 to 700 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[32] AS \"Change in total vbytes of all txs with feerate: 700 to 800 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[33] AS \"Change in total vbytes of all txs with feerate: 800 to 1000 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[34] AS \"Change in total vbytes of all txs with feerate: 1000 to 1200 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[35] AS \"Change in total vbytes of all txs with feerate: 1200 to 1400 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[36] AS \"Change in total vbytes of all txs with feerate: 1400 to 1700 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[37] AS \"Change in total vbytes of all txs with feerate: 1700 to 2000 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[38] AS \"Change in total vbytes of all txs with feerate: 2000 to 2500 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[39] AS \"Change in total vbytes of all txs with feerate: 2500 to 3000 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[40] AS \"Change in total vbytes of all txs with feerate: 3000 to 4000 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[41] AS \"Change in total vbytes of all txs with feerate: 4000 to 5000 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[42] AS \"Change in total vbytes of all txs with feerate: 5000 to 6000 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[43] AS \"Change in total vbytes of all txs with feerate: 6000 to 7000 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[44] AS \"Change in total vbytes of all txs with feerate: 7000 to 8000 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[45] AS \"Change in total vbytes of all txs with feerate: 8000 to 10000 sats/vbyte\",\n\"bytes_per_fee_bucket_diff\"[46] AS \"Change in total vbytes of all txs with feerate: 10000 to 2.1e+15 sats/vbyte\"\n\nFROM  mempool_data\nWHERE\n  $__unixEpochFilter(\"time\")\nORDER BY time\n\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Change in total size (in vbytes) of transactions by feerate",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "decbytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {
+        "0.0001 to 1": "#052b51",
+        "1 to 2": "#0a50a1",
+        "10 to 12": "#508642",
+        "12 to 14": "#9ac48a",
+        "14 to 17": "#629e51",
+        "17 to 20": "#7eb26d",
+        "2 to 3": "#0a437c",
+        "20 to 25": "#b7dbab",
+        "3 to 4": "#447ebc",
+        "4 to 5": "#64b0c8",
+        "5 to 6": "#70dbed",
+        "6 to 7": "#70dbed",
+        "7 to 8": "#aea2e0",
+        "8 to 10": "#3f6833"
+      },
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "dashboard",
+      "fill": 4,
+      "gridPos": {
+        "h": 18,
+        "w": 23,
+        "x": 0,
+        "y": 124
+      },
+      "id": 9,
+      "legend": {
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "hideEmpty": false,
+        "hideZero": true,
+        "max": true,
+        "min": true,
+        "rightSide": true,
+        "show": true,
+        "sortDesc": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "",
+          "format": "time_series",
+          "group": [],
+          "hide": false,
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__time(\"time\"), \n  \"total_fee_per_fee_bucket\"[1] AS \"Sum of fees of txs with feerate: 0.0001 to 1 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[2] AS \"Sum of fees of txs with feerate: 1 to 2 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[3] AS \"Sum of fees of txs with feerate: 2 to 3 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[4] AS \"Sum of fees of txs with feerate: 3 to 4 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[5] AS \"Sum of fees of txs with feerate: 4 to 5 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[6] AS \"Sum of fees of txs with feerate: 5 to 6 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[7] AS \"Sum of fees of txs with feerate: 6 to 7 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[8] AS \"Sum of fees of txs with feerate: 7 to 8 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[9] AS \"Sum of fees of txs with feerate: 8 to 10 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[10] AS \"Sum of fees of txs with feerate: 10 to 12 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[11] AS \"Sum of fees of txs with feerate: 12 to 14 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[12] AS \"Sum of fees of txs with feerate: 14 to 17 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[13] AS \"Sum of fees of txs with feerate: 17 to 20 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[14] AS \"Sum of fees of txs with feerate: 20 to 25 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[15] AS \"Sum of fees of txs with feerate: 25 to 30 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[16] AS \"Sum of fees of txs with feerate: 30 to 40 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[17] AS \"Sum of fees of txs with feerate: 40 to 50 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[18] AS \"Sum of fees of txs with feerate: 50 to 60 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[19] AS \"Sum of fees of txs with feerate: 60 to 70 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[20] AS \"Sum of fees of txs with feerate: 70 to 80 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[21] AS \"Sum of fees of txs with feerate: 80 to 100 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[22] AS \"Sum of fees of txs with feerate: 100 to 120 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[23] AS \"Sum of fees of txs with feerate: 120 to 140 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[24] AS \"Sum of fees of txs with feerate: 140 to 170 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[25] AS \"Sum of fees of txs with feerate: 170 to 200 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[26] AS \"Sum of fees of txs with feerate: 200 to 250 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[27] AS \"Sum of fees of txs with feerate: 250 to 300 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[28] AS \"Sum of fees of txs with feerate: 300 to 400 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[29] AS \"Sum of fees of txs with feerate: 400 to 500 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[30] AS \"Sum of fees of txs with feerate: 500 to 600 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[31] AS \"Sum of fees of txs with feerate: 600 to 700 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[32] AS \"Sum of fees of txs with feerate: 700 to 800 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[33] AS \"Sum of fees of txs with feerate: 800 to 1000 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[34] AS \"Sum of fees of txs with feerate: 1000 to 1200 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[35] AS \"Sum of fees of txs with feerate: 1200 to 1400 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[36] AS \"Sum of fees of txs with feerate: 1400 to 1700 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[37] AS \"Sum of fees of txs with feerate: 1700 to 2000 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[38] AS \"Sum of fees of txs with feerate: 2000 to 2500 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[39] AS \"Sum of fees of txs with feerate: 2500 to 3000 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[40] AS \"Sum of fees of txs with feerate: 3000 to 4000 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[41] AS \"Sum of fees of txs with feerate: 4000 to 5000 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[42] AS \"Sum of fees of txs with feerate: 5000 to 6000 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[43] AS \"Sum of fees of txs with feerate: 6000 to 7000 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[44] AS \"Sum of fees of txs with feerate: 7000 to 8000 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[45] AS \"Sum of fees of txs with feerate: 8000 to 10000 sats/vbyte\",\n\"total_fee_per_fee_bucket\"[46] AS \"Sum of fees of txs with feerate: 10000 to 2.1e+15 sats/vbyte\"\nFROM  mempool_data\nWHERE\n  $__unixEpochFilter(\"time\")\nORDER BY time\n\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Total fee (in BTC) of transactions by feerate",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "decimals": null,
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {
+        "0.0001 to 1": "#052b51",
+        "1 to 2": "#0a50a1",
+        "10 to 12": "#508642",
+        "12 to 14": "#9ac48a",
+        "14 to 17": "#629e51",
+        "17 to 20": "#7eb26d",
+        "2 to 3": "#0a437c",
+        "20 to 25": "#b7dbab",
+        "3 to 4": "#447ebc",
+        "4 to 5": "#64b0c8",
+        "5 to 6": "#70dbed",
+        "6 to 7": "#70dbed",
+        "7 to 8": "#aea2e0",
+        "8 to 10": "#3f6833"
+      },
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "dashboard",
+      "fill": 4,
+      "gridPos": {
+        "h": 18,
+        "w": 24,
+        "x": 0,
+        "y": 142
+      },
+      "id": 13,
+      "legend": {
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "hideEmpty": false,
+        "hideZero": true,
+        "max": true,
+        "min": true,
+        "rightSide": true,
+        "show": true,
+        "sortDesc": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
+      "targets": [
+        {
+          "alias": "",
+          "format": "time_series",
+          "group": [],
+          "hide": false,
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__time(\"time\"), \n \"total_fee_per_fee_bucket_diff\"[1] AS \"Change in sum of fees of txs with feerate: 0.0001 to 1 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[2] AS \"Change in sum of fees of txs with feerate: 1 to 2 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[3] AS \"Change in sum of fees of txs with feerate: 2 to 3 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[4] AS \"Change in sum of fees of txs with feerate: 3 to 4 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[5] AS \"Change in sum of fees of txs with feerate: 4 to 5 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[6] AS \"Change in sum of fees of txs with feerate: 5 to 6 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[7] AS \"Change in sum of fees of txs with feerate: 6 to 7 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[8] AS \"Change in sum of fees of txs with feerate: 7 to 8 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[9] AS \"Change in sum of fees of txs with feerate: 8 to 10 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[10] AS \"Change in sum of fees of txs with feerate: 10 to 12 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[11] AS \"Change in sum of fees of txs with feerate: 12 to 14 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[12] AS \"Change in sum of fees of txs with feerate: 14 to 17 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[13] AS \"Change in sum of fees of txs with feerate: 17 to 20 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[14] AS \"Change in sum of fees of txs with feerate: 20 to 25 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[15] AS \"Change in sum of fees of txs with feerate: 25 to 30 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[16] AS \"Change in sum of fees of txs with feerate: 30 to 40 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[17] AS \"Change in sum of fees of txs with feerate: 40 to 50 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[18] AS \"Change in sum of fees of txs with feerate: 50 to 60 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[19] AS \"Change in sum of fees of txs with feerate: 60 to 70 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[20] AS \"Change in sum of fees of txs with feerate: 70 to 80 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[21] AS \"Change in sum of fees of txs with feerate: 80 to 100 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[22] AS \"Change in sum of fees of txs with feerate: 100 to 120 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[23] AS \"Change in sum of fees of txs with feerate: 120 to 140 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[24] AS \"Change in sum of fees of txs with feerate: 140 to 170 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[25] AS \"Change in sum of fees of txs with feerate: 170 to 200 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[26] AS \"Change in sum of fees of txs with feerate: 200 to 250 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[27] AS \"Change in sum of fees of txs with feerate: 250 to 300 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[28] AS \"Change in sum of fees of txs with feerate: 300 to 400 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[29] AS \"Change in sum of fees of txs with feerate: 400 to 500 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[30] AS \"Change in sum of fees of txs with feerate: 500 to 600 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[31] AS \"Change in sum of fees of txs with feerate: 600 to 700 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[32] AS \"Change in sum of fees of txs with feerate: 700 to 800 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[33] AS \"Change in sum of fees of txs with feerate: 800 to 1000 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[34] AS \"Change in sum of fees of txs with feerate: 1000 to 1200 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[35] AS \"Change in sum of fees of txs with feerate: 1200 to 1400 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[36] AS \"Change in sum of fees of txs with feerate: 1400 to 1700 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[37] AS \"Change in sum of fees of txs with feerate: 1700 to 2000 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[38] AS \"Change in sum of fees of txs with feerate: 2000 to 2500 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[39] AS \"Change in sum of fees of txs with feerate: 2500 to 3000 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[40] AS \"Change in sum of fees of txs with feerate: 3000 to 4000 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[41] AS \"Change in sum of fees of txs with feerate: 4000 to 5000 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[42] AS \"Change in sum of fees of txs with feerate: 5000 to 6000 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[43] AS \"Change in sum of fees of txs with feerate: 6000 to 7000 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[44] AS \"Change in sum of fees of txs with feerate: 7000 to 8000 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[45] AS \"Change in sum of fees of txs with feerate: 8000 to 10000 sats/vbyte\",\n\"total_fee_per_fee_bucket_diff\"[46] AS \"Change in sum of fees of txs with feerate: 10000 to 2.1e+15 sats/vbyte\"\nFROM  mempool_data\nWHERE\n  $__unixEpochFilter(\"time\")\nORDER BY time\n\n",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Change in total fee (in BTC) of transactions by feerate",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "decimals": null,
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    }
+  ],
+  "refresh": false,
+  "schemaVersion": 16,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d",
+      "30d"
+    ]
+  },
+  "timezone": "",
+  "title": "Mempool Stats",
+  "uid": "2KEXfbcmz",
+  "version": 17
+}
